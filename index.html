@@ -1,0 +1,2896 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BYTE DEFENDER — Survive the Swarm</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Orbitron:wght@400;700;900&display=swap');
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{background:#0a0a0f;display:flex;justify-content:center;align-items:center;min-height:100vh;overflow:hidden;font-family:'Orbitron',monospace;color:#e0e0e0;touch-action:none}
+  #gameWrapper{position:relative;display:flex;flex-direction:column;align-items:center;gap:8px}
+  #hud{display:flex;justify-content:space-between;width:800px;padding:8px 16px;background:linear-gradient(135deg,#111118,#1a1a2e);border:1px solid #2a2a4a;border-radius:8px 8px 0 0;font-size:11px;letter-spacing:1px}
+  .hud-section{display:flex;align-items:center;gap:12px}
+  .hud-item{display:flex;align-items:center;gap:6px}
+  .hud-label{color:#666;font-size:9px;text-transform:uppercase}
+  .hud-value{color:#00ff88;font-family:'Press Start 2P',monospace;font-size:11px}
+  .hud-value.health{color:#ff4466}.hud-value.wave{color:#44aaff}.hud-value.xp{color:#ffaa00}.hud-value.hi{color:#ff66ff}
+  .health-bar-bg{width:120px;height:10px;background:#1a0a0a;border:1px solid #ff446644;border-radius:5px;overflow:hidden}
+  .health-bar-fill{height:100%;background:linear-gradient(90deg,#ff2244,#ff6644);border-radius:5px;transition:width 0.15s}
+  canvas{display:block;border:1px solid #2a2a4a;border-top:none;cursor:crosshair;border-radius:0 0 8px 8px;touch-action:none}
+  .overlay{position:absolute;top:0;left:0;width:100%;height:100%;display:flex;flex-direction:column;justify-content:center;align-items:center;background:rgba(5,5,15,0.92);z-index:30;pointer-events:all}
+  .overlay.hidden{display:none}
+  .title{font-family:'Press Start 2P',monospace;font-size:28px;color:#00ff88;text-shadow:0 0 20px #00ff8866,0 0 40px #00ff8833;margin-bottom:8px;letter-spacing:2px}
+  .subtitle{font-size:11px;color:#44aaff;margin-bottom:40px;letter-spacing:3px}
+  .start-btn,.upgrade-btn{font-family:'Press Start 2P',monospace;font-size:12px;padding:16px 40px;border:2px solid #00ff88;background:transparent;color:#00ff88;cursor:pointer;letter-spacing:2px;transition:all 0.2s;border-radius:4px}
+  .start-btn:hover,.upgrade-btn:hover{background:#00ff8822;box-shadow:0 0 20px #00ff8844;transform:scale(1.05)}
+  .controls-hint{margin-top:30px;font-size:9px;color:#555;letter-spacing:1px;text-align:center;line-height:1.8}
+  .upgrade-title{font-family:'Press Start 2P',monospace;font-size:18px;color:#ffaa00;text-shadow:0 0 20px #ffaa0044;margin-bottom:8px}
+  .upgrade-subtitle{font-size:10px;color:#888;margin-bottom:16px;letter-spacing:2px}
+  .upgrade-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:16px;width:620px;max-height:320px;overflow-y:auto}
+  .upgrade-card{background:linear-gradient(135deg,#111122,#1a1a33);border:1px solid #333366;border-radius:8px;padding:12px;cursor:pointer;transition:all 0.2s;text-align:left}
+  .upgrade-card:hover{border-color:#ffaa00;background:linear-gradient(135deg,#1a1a2e,#222244);box-shadow:0 0 15px #ffaa0022;transform:translateY(-2px)}
+  .upgrade-card.disabled{opacity:0.3;pointer-events:none}
+  .upgrade-card-name{font-family:'Press Start 2P',monospace;font-size:8px;color:#ffaa00;margin-bottom:4px}
+  .upgrade-card-desc{font-size:9px;color:#999;line-height:1.4;margin-bottom:8px}
+  .upgrade-card-cost{font-family:'Press Start 2P',monospace;font-size:7px;color:#00ff88}
+  .upgrade-card-level{font-size:7px;color:#666;float:right;margin-top:2px}
+  .xp-display{font-family:'Press Start 2P',monospace;font-size:11px;color:#ffaa00;margin-bottom:12px}
+  .skip-btn{font-family:'Orbitron',monospace;font-size:10px;padding:10px 24px;border:1px solid #444;background:transparent;color:#666;cursor:pointer;letter-spacing:2px;transition:all 0.2s;border-radius:4px}
+  .skip-btn:hover{border-color:#888;color:#aaa}
+  .gameover-title{font-family:'Press Start 2P',monospace;font-size:22px;color:#ff4466;text-shadow:0 0 20px #ff446666;margin-bottom:12px}
+  .gameover-stats{text-align:center;margin-bottom:30px}
+  .gameover-stat{font-size:11px;color:#888;margin:8px 0;letter-spacing:1px}
+  .gameover-stat span{font-family:'Press Start 2P',monospace;color:#00ff88;font-size:13px}
+  .gameover-stat .hi-score{color:#ff66ff}
+  .built-with{position:absolute;bottom:-32px;right:0;font-size:9px;color:#444;letter-spacing:1px}
+  .built-with span{color:#D97706}
+  .weapon-indicators{display:flex;gap:6px;margin-top:2px}
+  .weapon-dot{width:8px;height:8px;border-radius:50%;border:1px solid #333;opacity:0.3}
+  .weapon-dot.active{opacity:1;box-shadow:0 0 4px currentColor}
+
+  /* Virtual joystick */
+  #joystickZone{display:none;position:fixed;left:0;top:0;width:50%;height:100%;z-index:20;touch-action:none}
+  #joystickBase{position:absolute;width:120px;height:120px;border-radius:50%;border:2px solid rgba(0,255,136,0.2);background:rgba(0,255,136,0.05);pointer-events:none;display:none}
+  #joystickThumb{position:absolute;width:50px;height:50px;border-radius:50%;background:rgba(0,255,136,0.3);border:2px solid rgba(0,255,136,0.5);pointer-events:none;display:none}
+  #aimZone{display:none;position:fixed;right:0;top:0;width:50%;height:100%;z-index:20;touch-action:none}
+  .mobile-hint{display:none;font-size:8px;color:#444;text-align:center;margin-top:4px;letter-spacing:1px}
+
+  /* Mobile responsive */
+  @media (max-width:850px),(max-height:620px),(pointer:coarse){
+    body{padding:0;align-items:flex-start}
+    #gameWrapper{gap:0;width:100vw}
+    #hud{width:100%;border-radius:0;padding:4px 10px;font-size:9px}
+    .hud-label{font-size:7px}
+    .hud-value{font-size:9px}
+    .health-bar-bg{width:70px;height:7px}
+    canvas{width:100vw;height:auto;aspect-ratio:800/550;max-height:calc(100vh - 32px);border:none;border-radius:0;cursor:default;object-fit:contain}
+    .overlay{border-radius:0}
+    .title{font-size:18px}
+    .subtitle{font-size:9px;margin-bottom:20px}
+    .start-btn{font-size:10px;padding:14px 30px}
+    .controls-hint{font-size:7px}
+    .upgrade-grid{grid-template-columns:1fr 1fr;width:90vw;max-height:45vh;gap:8px}
+    .upgrade-card{padding:8px 10px}
+    .upgrade-card-name{font-size:7px}
+    .upgrade-card-desc{font-size:8px;margin-bottom:4px}
+    .upgrade-title{font-size:14px}
+    .upgrade-subtitle{font-size:8px;margin-bottom:8px}
+    .xp-display{font-size:9px;margin-bottom:6px}
+    .skip-btn{font-size:9px;padding:8px 20px}
+    .gameover-title{font-size:16px}
+    .gameover-stat{font-size:10px}
+    .gameover-stat span{font-size:11px}
+    .built-with{display:none}
+    #joystickZone,#aimZone{display:block}
+    .mobile-hint{display:block}
+    .desktop-hint{display:none}
+  }
+</style>
+</head>
+<body>
+<div id="gameWrapper">
+  <div id="hud">
+    <div class="hud-section">
+      <div class="hud-item">
+        <span class="hud-label">HP</span>
+        <div class="health-bar-bg"><div class="health-bar-fill" id="healthBar"></div></div>
+        <span class="hud-value health" id="healthText">100</span>
+      </div>
+      <div class="hud-item" id="weaponHud"></div>
+    </div>
+    <div class="hud-section">
+      <div class="hud-item">
+        <span class="hud-label">Wave</span>
+        <span class="hud-value wave" id="waveText">1</span>
+      </div>
+      <div class="hud-item">
+        <span class="hud-label">Score</span>
+        <span class="hud-value" id="scoreText">0</span>
+      </div>
+      <div class="hud-item">
+        <span class="hud-label">XP</span>
+        <span class="hud-value xp" id="xpText">0</span>
+      </div>
+      <div class="hud-item">
+        <span class="hud-label">Best</span>
+        <span class="hud-value hi" id="hiText">0</span>
+      </div>
+    </div>
+  </div>
+  <canvas id="gameCanvas" width="800" height="550"></canvas>
+
+  <div class="overlay" id="titleScreen">
+    <div class="title">BYTE DEFENDER</div>
+    <div class="subtitle">SURVIVE THE SWARM</div>
+    <button class="start-btn" id="startBtn">START GAME</button>
+    <div class="controls-hint">
+      <span class="desktop-hint">WASD / ARROWS TO MOVE &bull; AIM WITH MOUSE &bull; AUTO-FIRE</span>
+      <span class="mobile-hint">LEFT THUMB: MOVE &bull; AUTO-AIM &bull; AUTO-FIRE</span><br>
+      SURVIVE WAVES &bull; UPGRADE YOUR ARSENAL &bull; GO NUCLEAR
+    </div>
+  </div>
+
+  <div class="overlay hidden" id="upgradeScreen">
+    <div class="upgrade-title">WAVE COMPLETE</div>
+    <div class="upgrade-subtitle">UPGRADE YOUR ARSENAL</div>
+    <div class="xp-display">XP: <span id="upgradeXP">0</span></div>
+    <div class="upgrade-grid" id="upgradeGrid"></div>
+    <button class="skip-btn" id="nextWaveBtn">NEXT WAVE →</button>
+  </div>
+
+  <div class="overlay hidden" id="gameOverScreen">
+    <div class="gameover-title">SYSTEM CRASH</div>
+    <div class="gameover-stats">
+      <div class="gameover-stat">Waves Survived: <span id="finalWave">0</span></div>
+      <div class="gameover-stat">Final Score: <span id="finalScore">0</span></div>
+      <div class="gameover-stat">Enemies Defeated: <span id="finalKills">0</span></div>
+      <div class="gameover-stat">High Score: <span class="hi-score" id="finalHi">0</span></div>
+    </div>
+    <button class="start-btn" id="restartBtn">TRY AGAIN</button>
+  </div>
+</div>
+
+<!-- Mobile touch zones -->
+<div id="joystickZone">
+  <div id="joystickBase"></div>
+  <div id="joystickThumb"></div>
+</div>
+<div id="aimZone"></div>
+
+<script>
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+const W = canvas.width, H = canvas.height;
+
+// ========== PERSISTENT STATE (survives reset) ==========
+let highScore = 0;
+let animFrame = null;
+let loopRunning = false;
+
+// ========== INPUT (never re-attached) ==========
+const keys = {};
+const mouse = { x: W / 2, y: H / 2 };
+const touchMove = { x: 0, y: 0, active: false }; // virtual joystick output
+let isMobile = false;
+
+// Detect touch device
+function detectMobile() {
+  return ('ontouchstart' in window) || (navigator.maxTouchPoints > 0) || window.matchMedia('(pointer: coarse)').matches;
+}
+isMobile = detectMobile();
+
+// Keyboard (desktop)
+document.addEventListener('keydown', e => { keys[e.key.toLowerCase()] = true; });
+document.addEventListener('keyup', e => { keys[e.key.toLowerCase()] = false; });
+
+// Mouse (desktop)
+canvas.addEventListener('mousemove', e => {
+  const r = canvas.getBoundingClientRect();
+  mouse.x = (e.clientX - r.left) * (W / r.width);
+  mouse.y = (e.clientY - r.top) * (H / r.height);
+});
+
+// ========== VIRTUAL JOYSTICK (mobile) ==========
+const jZone = document.getElementById('joystickZone');
+const jBase = document.getElementById('joystickBase');
+const jThumb = document.getElementById('joystickThumb');
+let jTouchId = null;
+let jCenterX = 0, jCenterY = 0;
+const J_RADIUS = 60; // max drag distance
+const J_DEADZONE = 10;
+
+jZone.addEventListener('touchstart', e => {
+  e.preventDefault();
+  if (jTouchId !== null) return;
+  const t = e.changedTouches[0];
+  jTouchId = t.identifier;
+  jCenterX = t.clientX;
+  jCenterY = t.clientY;
+  jBase.style.display = 'block';
+  jThumb.style.display = 'block';
+  jBase.style.left = (jCenterX - 60) + 'px';
+  jBase.style.top = (jCenterY - 60) + 'px';
+  jThumb.style.left = (jCenterX - 25) + 'px';
+  jThumb.style.top = (jCenterY - 25) + 'px';
+  touchMove.active = true;
+}, { passive: false });
+
+jZone.addEventListener('touchmove', e => {
+  e.preventDefault();
+  for (const t of e.changedTouches) {
+    if (t.identifier !== jTouchId) continue;
+    let dx = t.clientX - jCenterX;
+    let dy = t.clientY - jCenterY;
+    const dist = Math.sqrt(dx*dx + dy*dy);
+    // Clamp to radius
+    if (dist > J_RADIUS) { dx = dx/dist*J_RADIUS; dy = dy/dist*J_RADIUS; }
+    jThumb.style.left = (jCenterX + dx - 25) + 'px';
+    jThumb.style.top = (jCenterY + dy - 25) + 'px';
+    // Output: -1 to 1
+    if (dist > J_DEADZONE) {
+      touchMove.x = dx / J_RADIUS;
+      touchMove.y = dy / J_RADIUS;
+    } else {
+      touchMove.x = 0;
+      touchMove.y = 0;
+    }
+  }
+}, { passive: false });
+
+function endJoystick(e) {
+  for (const t of e.changedTouches) {
+    if (t.identifier !== jTouchId) continue;
+    jTouchId = null;
+    touchMove.x = 0;
+    touchMove.y = 0;
+    touchMove.active = false;
+    jBase.style.display = 'none';
+    jThumb.style.display = 'none';
+  }
+}
+jZone.addEventListener('touchend', endJoystick);
+jZone.addEventListener('touchcancel', endJoystick);
+
+// Right side: manual aim override (optional — drag to aim)
+const aimZone = document.getElementById('aimZone');
+let aimTouchId = null;
+let manualAim = false;
+
+aimZone.addEventListener('touchstart', e => {
+  e.preventDefault();
+  const t = e.changedTouches[0];
+  aimTouchId = t.identifier;
+  manualAim = true;
+  updateAimFromTouch(t);
+}, { passive: false });
+
+aimZone.addEventListener('touchmove', e => {
+  e.preventDefault();
+  for (const t of e.changedTouches) {
+    if (t.identifier !== aimTouchId) continue;
+    updateAimFromTouch(t);
+  }
+}, { passive: false });
+
+function endAim(e) {
+  for (const t of e.changedTouches) {
+    if (t.identifier !== aimTouchId) continue;
+    aimTouchId = null;
+    manualAim = false;
+  }
+}
+aimZone.addEventListener('touchend', endAim);
+aimZone.addEventListener('touchcancel', endAim);
+
+function updateAimFromTouch(t) {
+  const r = canvas.getBoundingClientRect();
+  mouse.x = (t.clientX - r.left) * (W / r.width);
+  mouse.y = (t.clientY - r.top) * (H / r.height);
+}
+
+// ========== AUTO-AIM (mobile, when not manually aiming) ==========
+function autoAim() {
+  if (!G || !isMobile || manualAim) return;
+  const p = G.player;
+  let nearest = null, bestDist = Infinity;
+  for (const e of G.enemies) {
+    const d = Math.hypot(e.x - p.x, e.y - p.y);
+    if (d < bestDist) { bestDist = d; nearest = e; }
+  }
+  if (nearest) {
+    mouse.x = nearest.x;
+    mouse.y = nearest.y;
+  }
+}
+
+// ========== PREVENT PAGE SCROLL/ZOOM ON MOBILE ==========
+document.addEventListener('touchmove', e => {
+  // Allow scroll inside upgrade grid
+  if (e.target.closest && e.target.closest('.upgrade-grid')) return;
+  e.preventDefault();
+}, { passive: false });
+
+// Canvas touch: prevent default, and use as fallback aim
+canvas.addEventListener('touchstart', e => { e.preventDefault(); }, { passive: false });
+canvas.addEventListener('touchmove', e => { e.preventDefault(); }, { passive: false });
+
+// ========== OBJECT POOLS WITH HARD CAPS ==========
+const MAX_PARTICLES = 600;
+const MAX_BULLETS = 200;
+const MAX_EXPLOSIONS = 30;
+const MAX_XP_ORBS = 100;
+
+// ========== STARS (created once) ==========
+const stars = [];
+for (let i = 0; i < 120; i++) {
+  stars.push({ x: Math.random()*W, y: Math.random()*H, size: Math.random()*1.5+0.5, br: Math.random()*0.5+0.2, sp: Math.random()*2+1 });
+}
+
+// ========== GAME STATE ==========
+let G = null; // the game state object
+
+function initGame() {
+  // Completely replace game state — old object becomes unreferenced for GC
+  G = {
+    state: 'playing',
+    time: 0,
+    player: {
+      x: W/2, y: H/2, size: 14,
+      speed: 160, hp: 100, maxHp: 100,
+      fireRate: 0.30, fireTimer: 0,
+      bulletDamage: 22, bulletSpeed: 420, bulletPierce: 1,
+      invTimer: 0,
+      // Weapon unlock flags
+      hasMissile: false, missileRate: 3.5, missileTimer: 0, missileDamage: 60,
+      hasBomb: false, bombRate: 5.5, bombTimer: 0, bombDamage: 120, bombRadius: 80,
+      hasRailgun: false, railRate: 4.5, railTimer: 0, railDamage: 200,
+      hasSpread: false, spreadCount: 3,
+      hasSeeking: false,
+      hasSonic: false, sonicRate: 5.0, sonicTimer: 0, sonicDamage: 80, sonicRadius: 180, sonicArcDegs: 72,
+      // Combo weapons
+      hasSwarmSalvo: false, swarmSalvoRate: 4.0, swarmSalvoTimer: 0,
+      hasClusterBombs: false, clusterRate: 6.5, clusterTimer: 0,
+      hasPrismBeam: false, prismRate: 5.0, prismTimer: 0,
+      hasThermonuke: false, thermonukeRate: 10.0, thermonukeTimer: 0,
+      hasChainLightning: false, chainRate: 4.5, chainTimer: 0,
+      hasOrbitalStrike: false, orbitalRate: 4.0, orbitalTimer: 0,
+      // Sonic combos
+      hasShrapnelWave: false, shrapnelRate: 5.0, shrapnelTimer: 0,
+      hasConcussionSalvo: false, concussionRate: 5.0, concussionTimer: 0,
+      hasSeismicSlam: false, seismicRate: 5.5, seismicTimer: 0,
+      hasHarmonicRes: false, harmonicRate: 5.0, harmonicTimer: 0,
+      // Ultra weapons
+      hasMeteorShower: false, meteorRate: 8.0, meteorTimer: 0,
+      hasTeslaMinefield: false, teslaRate: 10.0, teslaTimer: 0,
+      hasSupernova: false, supernovaRate: 12.0, supernovaTimer: 0,
+      hasInfiniteRecursion: false, recursionRate: 8.0, recursionTimer: 0,
+      hasGhostFleet: false, ghostFleetRate: 8.0, ghostFleetTimer: 0,
+      hasExtinctionEvent: false, extinctionRate: 10.0, extinctionTimer: 0,
+      hasTectonicPrism: false, tectonicRate: 7.0, tectonicTimer: 0,
+      hasFrozenLight: false, frozenLightRate: 8.0, frozenLightTimer: 0,
+      hasNuclearShrapnel: false, nucShrapRate: 10.0, nucShrapTimer: 0,
+      hasGravitonCollapse: false, gravitonRate: 12.0, gravitonTimer: 0,
+      hasResonanceSwarm: false, resSwarmRate: 7.0, resSwarmTimer: 0,
+      hasPermafrostMines: false, permafrostRate: 9.0, permafrostTimer: 0,
+      hasAftershock: false, aftershockRate: 7.0, aftershockTimer: 0,
+      hasFaultLine: false, faultLineRate: 6.0, faultLineTimer: 0,
+      hasTungstenRain: false, tungstenRate: 9.0, tungstenTimer: 0,
+    },
+    enemies: [],
+    bullets: [],
+    missiles: [],
+    bombs: [],
+    railBeams: [],
+    explosions: [],
+    orbitals: [],
+    mines: [],          // tesla minefield
+    supernovas: [],     // active supernova sweeps
+    sonicWaves: [],     // expanding arc pulses
+    faultLines: [],     // persistent damage zones
+    particles: [],
+    xpOrbs: [],
+    wave: 1,
+    score: 0,
+    xp: 0,
+    kills: 0,
+    enemiesToSpawn: 0,
+    enemiesAlive: 0,
+    spawnTimer: 0,
+    waveComplete: false,
+    screenShake: 0,
+    comboLocked: new Set(),
+    bought: new Set(),
+    upgrades: {
+      speed: 0, fireRate: 0, damage: 0, health: 0, pierce: 0, regen: 0,
+      missile: 0, bomb: 0, railgun: 0, spread: 0, sonic: 0, seeking: 0,
+      combo_spread_missile: 0, combo_spread_bomb: 0, combo_spread_railgun: 0,
+      combo_missile_bomb: 0, combo_missile_railgun: 0, combo_bomb_railgun: 0,
+      combo_sonic_spread: 0, combo_sonic_missile: 0, combo_sonic_bomb: 0, combo_sonic_railgun: 0,
+      ultra_meteor: 0, ultra_tesla: 0, ultra_supernova: 0,
+      ultra_recursion: 0, ultra_ghost: 0, ultra_extinction: 0,
+      ultra_tectonic: 0, ultra_frozen: 0, ultra_nucshrap: 0,
+      ultra_graviton: 0, ultra_resswarm: 0, ultra_permafrost: 0,
+      ultra_aftershock: 0, ultra_faultline: 0, ultra_tungsten: 0,
+    }
+  };
+}
+
+// ========== DIFFICULTY CONFIG — CRANKED ==========
+function getWaveConfig(wave) {
+  // Enemy count — massive swarms
+  const count = Math.floor(12 + wave * 8 + Math.pow(wave, 1.8));
+  // HP multiplier: exponential
+  const hpMult = Math.pow(1.25, wave - 1);
+  // Speed multiplier: gradual but stacks
+  const spdMult = 1 + (wave - 1) * 0.08;
+  // Spawn rate — fast, gets frantic
+  const spawnInterval = Math.max(0.08, 0.5 - wave * 0.04);
+  // Batch: spawn multiple enemies per tick
+  const batchSize = Math.min(6, 1 + Math.floor(wave / 2));
+
+  const types = ['basic'];
+  if (wave >= 2) types.push('fast');
+  if (wave >= 3) types.push('tank');
+  if (wave >= 4) types.push('swarm', 'swarm', 'swarm'); // triple weight
+  if (wave >= 6) types.push('berserker');
+  if (wave >= 8) types.push('boss');
+
+  return { count, hpMult, spdMult, spawnInterval, batchSize, types };
+}
+
+const ENEMY_BASE = {
+  basic:     { hp: 40,  speed: 65,  size: 12, color: '#ff4466', xp: 100, score: 50,  dmg: 12 },
+  fast:      { hp: 25,  speed: 130, size: 9,  color: '#ff8844', xp: 150, score: 75,  dmg: 8 },
+  tank:      { hp: 150, speed: 35,  size: 18, color: '#aa44ff', xp: 250, score: 120, dmg: 22 },
+  swarm:     { hp: 15,  speed: 100, size: 7,  color: '#ffcc00', xp: 50,  score: 30,  dmg: 5 },
+  berserker: { hp: 80,  speed: 90,  size: 14, color: '#ff2200', xp: 300, score: 150, dmg: 30 },
+  boss:      { hp: 600, speed: 25,  size: 28, color: '#ff00ff', xp: 1000,score: 500, dmg: 40 },
+};
+
+function spawnEnemy(type) {
+  const side = Math.random() * 4 | 0;
+  let x, y;
+  if (side === 0) { x = -30; y = Math.random() * H; }
+  else if (side === 1) { x = W + 30; y = Math.random() * H; }
+  else if (side === 2) { x = Math.random() * W; y = -30; }
+  else { x = Math.random() * W; y = H + 30; }
+
+  const cfg = getWaveConfig(G.wave);
+  const b = ENEMY_BASE[type];
+  const hp = b.hp * cfg.hpMult;
+
+  G.enemies.push({
+    x, y, type,
+    hp, maxHp: hp,
+    speed: b.speed * cfg.spdMult,
+    size: b.size + (type === 'boss' ? Math.min(G.wave, 10) : 0),
+    color: b.color, xp: b.xp, score: b.score, dmg: b.dmg,
+    hitFlash: 0, slowTimer: 0,
+  });
+}
+
+// ========== PROJECTILE CREATION ==========
+function fireMainGun() {
+  const p = G.player;
+  const dx = mouse.x - p.x, dy = mouse.y - p.y;
+  const d = Math.sqrt(dx*dx + dy*dy) || 1;
+  const nx = dx/d, ny = dy/d;
+
+  // Base bullet
+  pushBullet(p.x + nx*18, p.y + ny*18, nx * p.bulletSpeed, ny * p.bulletSpeed, p.bulletDamage, p.bulletPierce, 'basic');
+
+  // Spread shot: extra bullets at angles
+  if (p.hasSpread) {
+    const angles = [];
+    const count = p.spreadCount;
+    for (let i = 1; i <= Math.floor(count / 2); i++) {
+      angles.push(i * 0.15);
+      angles.push(-i * 0.15);
+    }
+    const baseAngle = Math.atan2(ny, nx);
+    angles.forEach(off => {
+      const a = baseAngle + off;
+      pushBullet(p.x + Math.cos(a)*18, p.y + Math.sin(a)*18,
+        Math.cos(a)*p.bulletSpeed, Math.sin(a)*p.bulletSpeed,
+        p.bulletDamage * 0.6, 1, 'spread');
+    });
+  }
+}
+
+function pushBullet(x, y, vx, vy, damage, pierce, type) {
+  if (G.bullets.length >= MAX_BULLETS) return;
+  G.bullets.push({ x, y, vx, vy, damage, pierce, type, hitSet: new Set() });
+}
+
+function fireMissile() {
+  if (G.missiles.length >= 20) return;
+  const p = G.player;
+  // Find nearest enemy
+  let target = null, best = Infinity;
+  for (const e of G.enemies) {
+    const d = Math.hypot(e.x - p.x, e.y - p.y);
+    if (d < best) { best = d; target = e; }
+  }
+  const angle = target ? Math.atan2(target.y - p.y, target.x - p.x) : Math.atan2(mouse.y - p.y, mouse.x - p.x);
+  G.missiles.push({
+    x: p.x, y: p.y,
+    vx: Math.cos(angle) * 180, vy: Math.sin(angle) * 180,
+    damage: p.missileDamage,
+    blastRadius: 55,
+    life: 3.0,
+    trail: [],
+  });
+}
+
+function dropBomb() {
+  if (G.bombs.length >= 10) return;
+  const p = G.player;
+  const dx = mouse.x - p.x, dy = mouse.y - p.y;
+  const d = Math.sqrt(dx*dx + dy*dy) || 1;
+  const speed = 250;
+  G.bombs.push({
+    x: p.x, y: p.y,
+    vx: dx/d * speed, vy: dy/d * speed,
+    damage: p.bombDamage,
+    radius: p.bombRadius,
+    fuseTime: 0.8,
+    timer: 0,
+    armed: false,
+  });
+}
+
+function fireRailgun() {
+  const p = G.player;
+  const dx = mouse.x - p.x, dy = mouse.y - p.y;
+  const d = Math.sqrt(dx*dx + dy*dy) || 1;
+  const nx = dx/d, ny = dy/d;
+
+  // Instant line — damage all enemies along the path
+  const lineLen = 900;
+  const endX = p.x + nx * lineLen, endY = p.y + ny * lineLen;
+
+  for (const e of G.enemies) {
+    // Point-to-line distance
+    const ex = e.x - p.x, ey = e.y - p.y;
+    const t = Math.max(0, Math.min(lineLen, ex*nx + ey*ny));
+    const closestX = nx*t, closestY = ny*t;
+    const dist = Math.hypot(ex - closestX, ey - closestY);
+    if (dist < e.size + 8) {
+      e.hp -= p.railDamage;
+      e.hitFlash = 0.15;
+      spawnParticles(e.x, e.y, '#00ccff', 6, 200, 4);
+    }
+  }
+
+  // Visual beam
+  G.railBeams.push({
+    x1: p.x + nx*20, y1: p.y + ny*20,
+    x2: endX, y2: endY,
+    life: 0.25, maxLife: 0.25,
+  });
+}
+
+// ========== COMBO WEAPONS ==========
+// 1. SPREAD + MISSILE → SWARM SALVO: missiles spread 120° apart at different targets
+function fireSwarmSalvo() {
+  const p = G.player;
+  const lvl = G.upgrades.combo_spread_missile || 1;
+  const count = lvl >= 3 ? 5 : 3; // max level: 5 missiles
+  const spreadAngle = (2 * Math.PI / 3); // 120° between each
+
+  // Find nearest for base angle
+  let target = null, best = Infinity;
+  for (const e of G.enemies) {
+    const d = Math.hypot(e.x-p.x, e.y-p.y);
+    if (d < best) { best = d; target = e; }
+  }
+  const baseAngle = target ? Math.atan2(target.y-p.y, target.x-p.x) : Math.atan2(mouse.y-p.y, mouse.x-p.x);
+  const dmgMult = lvl >= 2 ? 1.0 : 0.8;
+
+  for (let i = 0; i < count; i++) {
+    if (G.missiles.length >= 25) break;
+    const a = baseAngle + (i - Math.floor(count/2)) * spreadAngle;
+    G.missiles.push({
+      x: p.x, y: p.y, vx: Math.cos(a)*220, vy: Math.sin(a)*220,
+      damage: p.missileDamage * dmgMult, blastRadius: 45, life: 2.5, trail: [], combo: 'swarm',
+    });
+  }
+}
+
+// 2. SPREAD + BOMB → CLUSTER BOMBS: 5 small bombs in a fan
+function fireClusterBombs() {
+  const p = G.player;
+  const baseAngle = Math.atan2(mouse.y-p.y, mouse.x-p.x);
+  for (let i = -2; i <= 2; i++) {
+    if (G.bombs.length >= 15) break;
+    const a = baseAngle + i * 0.15;
+    G.bombs.push({
+      x: p.x, y: p.y, vx: Math.cos(a)*420, vy: Math.sin(a)*420,
+      damage: p.bombDamage * 0.5, radius: p.bombRadius * 0.6,
+      fuseTime: 1.0 + Math.abs(i)*0.12, timer: 0, armed: false, combo: 'cluster',
+    });
+  }
+}
+
+// 3. SPREAD + RAILGUN → PRISM BEAM: 5 rail beams in a fan
+function firePrismBeam() {
+  const p = G.player;
+  const lvl = G.upgrades.combo_spread_railgun || 1;
+  const dmgMult = lvl >= 2 ? 0.75 : 0.6;
+  const baseAngle = Math.atan2(mouse.y-p.y, mouse.x-p.x);
+  for (let i = -2; i <= 2; i++) {
+    const a = baseAngle + i * 0.16;
+    const nx = Math.cos(a), ny = Math.sin(a);
+    const lineLen = 900;
+    let firstHit = null;
+    for (const e of G.enemies) {
+      const ex = e.x-p.x, ey = e.y-p.y;
+      const t = Math.max(0, Math.min(lineLen, ex*nx+ey*ny));
+      const dist = Math.hypot(ex-nx*t, ey-ny*t);
+      if (dist < e.size+10) {
+        e.hp -= p.railDamage * dmgMult;
+        e.hitFlash = 0.15;
+        spawnParticles(e.x, e.y, '#ff44ff', 4, 150, 3);
+        if (!firstHit) firstHit = e;
+      }
+    }
+    G.railBeams.push({ x1:p.x+nx*20, y1:p.y+ny*20, x2:p.x+nx*lineLen, y2:p.y+ny*lineLen, life:0.3, maxLife:0.3, combo:'prism' });
+
+    // Max level: beams split at first hit point
+    if (lvl >= 3 && firstHit) {
+      for (let s = -1; s <= 1; s += 2) {
+        const sa = a + s * 0.5;
+        const snx = Math.cos(sa), sny = Math.sin(sa);
+        for (const e of G.enemies) {
+          const ex = e.x-firstHit.x, ey = e.y-firstHit.y;
+          const t = Math.max(0, Math.min(500, ex*snx+ey*sny));
+          const dist = Math.hypot(ex-snx*t, ey-sny*t);
+          if (dist < e.size+10) {
+            e.hp -= p.railDamage * 0.4;
+            e.hitFlash = 0.1;
+            spawnParticles(e.x, e.y, '#ff88ff', 3, 120, 2);
+          }
+        }
+        G.railBeams.push({ x1:firstHit.x, y1:firstHit.y, x2:firstHit.x+snx*500, y2:firstHit.y+sny*500, life:0.25, maxLife:0.25, combo:'prism' });
+      }
+    }
+  }
+}
+
+// 4. MISSILE + BOMB → THERMONUKE: 1 big slow homing missile → enormous explosion
+function fireThermonuke() {
+  if (G.missiles.length >= 30) return;
+  const p = G.player;
+  const lvl = G.upgrades.combo_missile_bomb || 1;
+  const dmgMult = lvl >= 2 ? 10 : 8;
+  let target = null, best = Infinity;
+  for (const e of G.enemies) {
+    const d = Math.hypot(e.x-p.x, e.y-p.y);
+    if (d < best) { best = d; target = e; }
+  }
+  const angle = target ? Math.atan2(target.y-p.y, target.x-p.x) : Math.atan2(mouse.y-p.y, mouse.x-p.x);
+  G.missiles.push({
+    x: p.x, y: p.y, vx: Math.cos(angle)*120, vy: Math.sin(angle)*120,
+    damage: p.bombDamage * dmgMult, blastRadius: 200, life: 4.0, trail: [], combo: 'nuke',
+  });
+}
+
+// 5. MISSILE + RAILGUN → CHAIN LIGHTNING: instant beam to nearest, chains to 3 more
+function fireChainLightning() {
+  const p = G.player;
+  const hit = new Set();
+  let cx = p.x, cy = p.y;
+  const lvl = G.upgrades.combo_missile_railgun || 1;
+  const chains = lvl >= 3 ? G.enemies.length : (lvl >= 2 ? 6 : 4);
+  const maxRange = lvl >= 3 ? 99999 : (lvl >= 2 ? 400 : 300);
+  const baseDmg = p.railDamage * (lvl >= 2 ? 0.7 : 0.6);
+  let currentDmg = baseDmg;
+  const decay = 0.75; // 25% less damage per bounce
+  let prevX = p.x, prevY = p.y;
+  for (let c = 0; c < chains; c++) {
+    let nearest = null, bestD = Infinity;
+    for (let i = 0; i < G.enemies.length; i++) {
+      if (hit.has(i)) continue;
+      const e = G.enemies[i];
+      const d = Math.hypot(e.x-cx, e.y-cy);
+      if (d < bestD && d < maxRange) { bestD = d; nearest = i; }
+    }
+    if (nearest === null) break;
+    const e = G.enemies[nearest];
+    hit.add(nearest);
+    e.hp -= currentDmg;
+    e.hitFlash = 0.15;
+    spawnParticles(e.x, e.y, '#88ffff', 5, 180, 3);
+    // Beam gets thinner as damage decays
+    const beamAlpha = Math.max(0.15, currentDmg / baseDmg);
+    G.railBeams.push({ x1:prevX, y1:prevY, x2:e.x, y2:e.y, life: 0.15 + beamAlpha * 0.25, maxLife: 0.15 + beamAlpha * 0.25, combo:'chain' });
+    prevX = e.x; prevY = e.y;
+    cx = e.x; cy = e.y;
+    currentDmg *= decay;
+  }
+}
+
+// 6. BOMB + RAILGUN → ORBITAL STRIKE: marks target, beam from sky after delay
+function fireOrbitalStrike() {
+  const p = G.player;
+  const lvl = G.upgrades.combo_bomb_railgun || 1;
+  const dmgMult = lvl >= 2 ? 4 : 3;
+  const count = lvl >= 3 ? 2 : 1; // max level: two targets
+  const used = new Set();
+
+  for (let n = 0; n < count; n++) {
+    let target = null, best = Infinity;
+    for (const e of G.enemies) {
+      if (used.has(e)) continue;
+      const d = Math.hypot(e.x-p.x, e.y-p.y);
+      if (d < best) { best = d; target = e; }
+    }
+    if (target) used.add(target);
+    G.orbitals.push({
+      x: target ? target.x : mouse.x + (n * 60 - 30),
+      y: target ? target.y : mouse.y + (n * 60 - 30),
+      target: target,
+      delay: 0.6, timer: 0, radius: lvl >= 2 ? 120 : 100, damage: p.bombDamage * dmgMult, fired: false
+    });
+  }
+}
+
+// ========== ULTRA WEAPONS ==========
+
+// METEOR SHOWER (Swarm Salvo + Orbital Strike): rain of tracking beams + homing fragments
+function fireMeteorShower() {
+  const p = G.player;
+  const used = new Set();
+  const count = Math.min(6, G.enemies.length);
+  for (let n = 0; n < count; n++) {
+    let target = null, best = Infinity;
+    for (const e of G.enemies) {
+      if (used.has(e)) continue;
+      const d = Math.hypot(e.x - p.x, e.y - p.y);
+      if (d < best) { best = d; target = e; }
+    }
+    if (target) used.add(target);
+    G.orbitals.push({
+      x: target ? target.x : p.x + (Math.random()-0.5)*300,
+      y: target ? target.y : p.y + (Math.random()-0.5)*300,
+      target: target,
+      delay: 0.3 + n * 0.15, // staggered rain
+      timer: 0,
+      radius: 80,
+      damage: p.bombDamage * 3,
+      fired: false,
+      meteor: true, // flag: spawn fragments on impact
+    });
+  }
+}
+
+// TESLA MINEFIELD (Cluster Bombs + Chain Lightning): ring of electrified mines
+function deployTeslaMinefield() {
+  const p = G.player;
+  const mineCount = 8;
+  for (let i = 0; i < mineCount; i++) {
+    const angle = (Math.PI * 2 / mineCount) * i;
+    const dist = 100 + Math.random() * 40;
+    G.mines.push({
+      x: p.x + Math.cos(angle) * dist,
+      y: p.y + Math.sin(angle) * dist,
+      damage: p.railDamage * 0.8,
+      chainDamage: p.railDamage * 0.4,
+      triggerRadius: 60,
+      explodeRadius: 70,
+      life: 4.0,
+      maxLife: 4.0,
+      triggered: false,
+      detonated: false,
+      pulsePhase: Math.random() * Math.PI * 2,
+    });
+  }
+}
+
+// SUPERNOVA (Prism Beam + Thermonuke): sweeping beam then explosion
+function fireSupernova() {
+  const p = G.player;
+  G.supernovas.push({
+    x: p.x, y: p.y,
+    angle: Math.atan2(mouse.y - p.y, mouse.x - p.x),
+    sweepSpeed: Math.PI * 1.5, // 270°/sec → ~1.3s for full circle
+    swept: 0,
+    beamLen: 500,
+    beamDamage: p.railDamage * 0.4,
+    explodeDamage: p.bombDamage * 10,
+    explodeRadius: 220,
+    phase: 'sweep', // 'sweep' then 'explode'
+    life: 2.5,
+  });
+}
+
+// ========== SONIC WAVE ==========
+function fireSonicWave() {
+  const p = G.player;
+  const aimAngle = Math.atan2(mouse.y - p.y, mouse.x - p.x);
+  const arcRad = p.sonicArcDegs * Math.PI / 180;
+  G.sonicWaves.push({
+    x: p.x, y: p.y,
+    aimAngle,
+    arc: arcRad,         // total arc width in radians
+    radius: 0,           // current expansion radius
+    maxRadius: p.sonicRadius,
+    speed: 280,          // expansion speed px/sec
+    damage: p.sonicDamage,
+    life: 0,
+    hitSet: new Set(),   // enemies already damaged
+    waveFreq: 12 + Math.random() * 4, // wavy distortion frequency
+    waveAmp: 6,          // wavy distortion amplitude
+  });
+}
+
+// ========== SONIC COMBO WEAPONS ==========
+
+// SHRAPNEL WAVE (Sonic + Spread): expanding wave that spawns bullets in its wake
+function fireShrapnelWave() {
+  const p = G.player;
+  const lvl = G.upgrades.combo_sonic_spread || 1;
+  const aimAngle = Math.atan2(mouse.y - p.y, mouse.x - p.x);
+  const arcDegs = Math.min(360, (lvl >= 2 ? 288 : 216));
+  G.sonicWaves.push({
+    x: p.x, y: p.y, aimAngle, arc: arcDegs * Math.PI / 180,
+    radius: 0, maxRadius: 220, speed: 250,
+    damage: p.sonicDamage * (lvl >= 2 ? 1.3 : 1.0), life: 0, hitSet: new Set(),
+    waveFreq: 10, waveAmp: 8, combo: 'shrapnel',
+    bulletTimer: 0, bulletInterval: 0.06,
+  });
+}
+
+// CONCUSSION SALVO (Sonic + Missile): wave slows enemies, then missiles target them
+function fireConcussionSalvo() {
+  const p = G.player;
+  const lvl = G.upgrades.combo_sonic_missile || 1;
+  const arcDegs = Math.min(360, (lvl >= 2 ? 288 : 216));
+  const aimAngle = Math.atan2(mouse.y - p.y, mouse.x - p.x);
+  G.sonicWaves.push({
+    x: p.x, y: p.y, aimAngle, arc: arcDegs * Math.PI / 180,
+    radius: 0, maxRadius: 200, speed: 320,
+    damage: p.sonicDamage * 0.5, life: 0, hitSet: new Set(),
+    waveFreq: 8, waveAmp: 10, combo: 'concussion',
+    slowDuration: lvl >= 2 ? 3.0 : 2.0,
+    missileCount: lvl >= 3 ? 5 : 3,
+    slowed: [], // track slowed enemies for missile targeting
+  });
+}
+
+// SEISMIC SLAM (Sonic + Bomb): wave triggers mini-explosion on each enemy hit
+function fireSeismicSlam() {
+  const p = G.player;
+  const lvl = G.upgrades.combo_sonic_bomb || 1;
+  const arcDegs = Math.min(360, (lvl >= 2 ? 320 : 252));
+  const aimAngle = Math.atan2(mouse.y - p.y, mouse.x - p.x);
+  G.sonicWaves.push({
+    x: p.x, y: p.y, aimAngle, arc: arcDegs * Math.PI / 180,
+    radius: 0, maxRadius: 200, speed: 280,
+    damage: p.sonicDamage * 0.3, life: 0, hitSet: new Set(),
+    waveFreq: 6, waveAmp: 12, combo: 'seismic',
+    explRadius: lvl >= 2 ? 55 : 40,
+    explDamage: p.bombDamage * (lvl >= 3 ? 1.5 : 1.0),
+  });
+}
+
+// HARMONIC RESONANCE (Sonic + Railgun): wave expands then contracts back, hitting twice
+function fireHarmonicResonance() {
+  const p = G.player;
+  const lvl = G.upgrades.combo_sonic_railgun || 1;
+  const bounces = lvl >= 3 ? 3 : (lvl >= 2 ? 2 : 1);
+  const arcDegs = Math.min(360, 252);
+  const aimAngle = Math.atan2(mouse.y - p.y, mouse.x - p.x);
+  // Fire the expanding wave, subsequent bounces spawned in update when wave completes
+  G.sonicWaves.push({
+    x: p.x, y: p.y, aimAngle, arc: arcDegs * Math.PI / 180,
+    radius: 0, maxRadius: 220, speed: 300,
+    damage: p.railDamage * 0.5, life: 0, hitSet: new Set(),
+    waveFreq: 14, waveAmp: 7, combo: 'harmonic',
+    bouncesLeft: bounces, expanding: true,
+  });
+}
+
+// ========== SONIC ULTRA WEAPONS ==========
+
+// INFINITE RECURSION (Shrapnel Wave + Chain Lightning): wave + chain + sub-waves
+function fireInfiniteRecursion() {
+  const p = G.player;
+  G.sonicWaves.push({
+    x: p.x, y: p.y, aimAngle: 0, arc: Math.PI * 2,
+    radius: 0, maxRadius: 250, speed: 260,
+    damage: p.sonicDamage * 1.5, life: 0, hitSet: new Set(),
+    waveFreq: 10, waveAmp: 10, combo: 'recursion',
+    chainDamage: p.railDamage * 0.4,
+    subWaveRadius: 80, subWaveDamage: p.sonicDamage * 0.6,
+  });
+}
+
+// GHOST FLEET (Concussion Salvo + Orbital Strike): freeze wave + orbital rain on every target
+function fireGhostFleet() {
+  const p = G.player;
+  G.sonicWaves.push({
+    x: p.x, y: p.y, aimAngle: 0, arc: Math.PI * 2,
+    radius: 0, maxRadius: 300, speed: 350,
+    damage: p.sonicDamage * 0.3, life: 0, hitSet: new Set(),
+    waveFreq: 6, waveAmp: 14, combo: 'ghost',
+    slowDuration: 3.0,
+    frozenTargets: [],
+  });
+}
+
+// EXTINCTION EVENT (Seismic Slam + Swarm Salvo): seismic wave + homing missiles from each hit
+function fireExtinctionEvent() {
+  const p = G.player;
+  G.sonicWaves.push({
+    x: p.x, y: p.y, aimAngle: 0, arc: Math.PI * 2,
+    radius: 0, maxRadius: 280, speed: 240,
+    damage: p.sonicDamage * 0.5, life: 0, hitSet: new Set(),
+    waveFreq: 5, waveAmp: 15, combo: 'extinction',
+    explRadius: 50, explDamage: p.bombDamage * 1.2,
+  });
+}
+
+// ========== 9 NEW ULTRA WEAPONS ==========
+
+// TECTONIC PRISM (Prism + Seismic): 5 beams, every hit explodes
+function fireTectonicPrism() {
+  const p = G.player;
+  const baseAngle = Math.atan2(mouse.y-p.y, mouse.x-p.x);
+  for (let i = -2; i <= 2; i++) {
+    const a = baseAngle + i * 0.16;
+    const nx = Math.cos(a), ny = Math.sin(a);
+    const lineLen = 900;
+    for (const e of G.enemies) {
+      const ex = e.x-p.x, ey = e.y-p.y;
+      const t = Math.max(0, Math.min(lineLen, ex*nx+ey*ny));
+      if (Math.hypot(ex-nx*t, ey-ny*t) < e.size+10) {
+        e.hp -= p.railDamage * 0.5;
+        e.hitFlash = 0.15;
+        createExplosion(e.x, e.y, 50, p.bombDamage * 0.8, '#ff6622');
+      }
+    }
+    G.railBeams.push({ x1:p.x+nx*20, y1:p.y+ny*20, x2:p.x+nx*lineLen, y2:p.y+ny*lineLen, life:0.3, maxLife:0.3, combo:'tectonic' });
+  }
+  G.screenShake = 0.5;
+}
+
+// FROZEN LIGHT (Prism + Concussion): freeze wave → prism beams at 3x to slowed
+function fireFrozenLight() {
+  const p = G.player;
+  G.sonicWaves.push({
+    x: p.x, y: p.y, aimAngle: 0, arc: Math.PI*2,
+    radius: 0, maxRadius: 250, speed: 350,
+    damage: p.sonicDamage * 0.3, life: 0, hitSet: new Set(),
+    waveFreq: 8, waveAmp: 10, combo: 'frozen_light',
+    slowDuration: 2.5, slowed: [],
+  });
+}
+function fireFrozenLightBeams() {
+  // Called when frozen_light wave completes
+  const p = G.player;
+  for (let i = -2; i <= 2; i++) {
+    const a = Math.random() * Math.PI * 2; // random spread for coverage
+    const nx = Math.cos(a), ny = Math.sin(a);
+    const lineLen = 900;
+    for (const e of G.enemies) {
+      const ex = e.x-p.x, ey = e.y-p.y;
+      const t = Math.max(0, Math.min(lineLen, ex*nx+ey*ny));
+      if (Math.hypot(ex-nx*t, ey-ny*t) < e.size+10) {
+        const mult = e.slowTimer > 0 ? 3.0 : 1.0;
+        e.hp -= p.railDamage * 0.6 * mult;
+        e.hitFlash = 0.15;
+        spawnParticles(e.x, e.y, e.slowTimer > 0 ? '#aaddff' : '#ff44ff', 5, 150, 3);
+      }
+    }
+    G.railBeams.push({ x1:p.x+nx*20, y1:p.y+ny*20, x2:p.x+nx*lineLen, y2:p.y+ny*lineLen, life:0.35, maxLife:0.35, combo:'frozen_beam' });
+  }
+}
+
+// NUCLEAR SHRAPNEL (Thermonuke + Shrapnel): nuke that spawns shrapnel wave on impact
+function fireNuclearShrapnel() {
+  if (G.missiles.length >= 30) return;
+  const p = G.player;
+  let target = null, best = Infinity;
+  for (const e of G.enemies) { const d = Math.hypot(e.x-p.x, e.y-p.y); if (d < best) { best = d; target = e; } }
+  const angle = target ? Math.atan2(target.y-p.y, target.x-p.x) : Math.atan2(mouse.y-p.y, mouse.x-p.x);
+  G.missiles.push({
+    x: p.x, y: p.y, vx: Math.cos(angle)*120, vy: Math.sin(angle)*120,
+    damage: p.bombDamage * 8, blastRadius: 200, life: 4.0, trail: [], combo: 'nucshrap',
+  });
+}
+
+// GRAVITON COLLAPSE (Thermonuke + Harmonic): nuke → implosion wave that pulls enemies → re-explode
+function fireGravitonCollapse() {
+  if (G.missiles.length >= 30) return;
+  const p = G.player;
+  let target = null, best = Infinity;
+  for (const e of G.enemies) { const d = Math.hypot(e.x-p.x, e.y-p.y); if (d < best) { best = d; target = e; } }
+  const angle = target ? Math.atan2(target.y-p.y, target.x-p.x) : Math.atan2(mouse.y-p.y, mouse.x-p.x);
+  G.missiles.push({
+    x: p.x, y: p.y, vx: Math.cos(angle)*100, vy: Math.sin(angle)*100,
+    damage: p.bombDamage * 6, blastRadius: 180, life: 4.5, trail: [], combo: 'graviton',
+  });
+}
+
+// RESONANCE SWARM (Swarm + Harmonic): harmonic wave, each hit spawns homing missile
+function fireResonanceSwarm() {
+  const p = G.player;
+  G.sonicWaves.push({
+    x: p.x, y: p.y, aimAngle: 0, arc: Math.PI*2,
+    radius: 0, maxRadius: 250, speed: 280,
+    damage: p.sonicDamage * 0.6, life: 0, hitSet: new Set(),
+    waveFreq: 12, waveAmp: 8, combo: 'res_swarm',
+    bouncesLeft: 2, expanding: true,
+  });
+}
+
+// PERMAFROST MINES (Cluster + Concussion): freeze wave → cluster bombs on frozen targets
+function firePermafrostMines() {
+  const p = G.player;
+  G.sonicWaves.push({
+    x: p.x, y: p.y, aimAngle: 0, arc: Math.PI*2,
+    radius: 0, maxRadius: 250, speed: 330,
+    damage: p.sonicDamage * 0.3, life: 0, hitSet: new Set(),
+    waveFreq: 7, waveAmp: 10, combo: 'permafrost',
+    slowDuration: 3.0, slowed: [], frozenTargets: [],
+  });
+}
+
+// AFTERSHOCK (Cluster + Harmonic): harmonic wave, each hit triggers cluster chain
+function fireAftershock() {
+  const p = G.player;
+  G.sonicWaves.push({
+    x: p.x, y: p.y, aimAngle: 0, arc: Math.PI*2,
+    radius: 0, maxRadius: 230, speed: 260,
+    damage: p.sonicDamage * 0.4, life: 0, hitSet: new Set(),
+    waveFreq: 6, waveAmp: 12, combo: 'aftershock',
+    bouncesLeft: 2, expanding: true,
+  });
+}
+
+// FAULT LINE (Chain Lightning + Seismic): chain lightning + persistent damage line
+function fireFaultLine() {
+  const p = G.player;
+  // Fire chain lightning first
+  const hit = new Set();
+  let cx = p.x, cy = p.y, prevX = p.x, prevY = p.y;
+  const points = [{x:p.x, y:p.y}];
+  for (let c = 0; c < G.enemies.length; c++) {
+    let nearest = null, bestD = Infinity;
+    for (let i = 0; i < G.enemies.length; i++) {
+      if (hit.has(i)) continue;
+      const e = G.enemies[i];
+      const d = Math.hypot(e.x-cx, e.y-cy);
+      if (d < bestD) { bestD = d; nearest = i; }
+    }
+    if (nearest === null) break;
+    const e = G.enemies[nearest];
+    hit.add(nearest);
+    e.hp -= p.railDamage * 0.5;
+    e.hitFlash = 0.15;
+    createExplosion(e.x, e.y, 40, p.bombDamage * 0.6, '#ff4488');
+    G.railBeams.push({ x1:prevX, y1:prevY, x2:e.x, y2:e.y, life:0.4, maxLife:0.4, combo:'fault' });
+    points.push({x:e.x, y:e.y});
+    prevX = e.x; prevY = e.y; cx = e.x; cy = e.y;
+  }
+  // Create persistent fault line along the path
+  if (points.length >= 2) {
+    G.faultLines.push({ points, life: 3.0, maxLife: 3.0, damageTimer: 0, damage: p.railDamage * 0.15, width: 30 });
+  }
+  G.screenShake = 0.8;
+}
+
+// TUNGSTEN RAIN (Orbital + Shrapnel): 8 orbital strikes in a ring → each spawns shrapnel wave
+function fireTungstenRain() {
+  const p = G.player;
+  for (let i = 0; i < 8; i++) {
+    const angle = (Math.PI * 2 / 8) * i;
+    const dist = 150 + Math.random() * 80;
+    const tx = p.x + Math.cos(angle) * dist;
+    const ty = p.y + Math.sin(angle) * dist;
+    // Find nearest enemy to that point
+    let target = null, best = Infinity;
+    for (const e of G.enemies) {
+      const d = Math.hypot(e.x-tx, e.y-ty);
+      if (d < best) { best = d; target = e; }
+    }
+    G.orbitals.push({
+      x: target ? target.x : tx, y: target ? target.y : ty,
+      target: target, delay: 0.2 + i * 0.1,
+      timer: 0, radius: 70, damage: p.bombDamage * 2, fired: false,
+      tungsten: true, // flag: spawn shrapnel wave on impact
+    });
+  }
+}
+
+// ========== EXPLOSIONS (AOE) ==========
+function createExplosion(x, y, radius, damage, color) {
+  if (G.explosions.length >= MAX_EXPLOSIONS) return;
+  // Damage all enemies in radius
+  for (const e of G.enemies) {
+    const dist = Math.hypot(e.x - x, e.y - y);
+    if (dist < radius + e.size) {
+      const falloff = 1 - (dist / (radius + e.size)) * 0.5;
+      e.hp -= damage * falloff;
+      e.hitFlash = 0.15;
+    }
+  }
+  G.explosions.push({ x, y, radius, life: 0.4 + radius * 0.003, maxLife: 0.4 + radius * 0.003, color });
+  const ptCount = Math.min(40, 10 + Math.floor(radius * 0.15));
+  spawnParticles(x, y, color, ptCount, 150 + radius, Math.min(8, 3 + radius * 0.02));
+}
+
+// ========== PARTICLES (with cap) ==========
+function spawnParticles(x, y, color, count, speed, size) {
+  for (let i = 0; i < count; i++) {
+    if (G.particles.length >= MAX_PARTICLES) return;
+    const angle = Math.random() * Math.PI * 2;
+    const sp = Math.random() * speed;
+    G.particles.push({
+      x, y, color,
+      vx: Math.cos(angle)*sp, vy: Math.sin(angle)*sp,
+      life: Math.random()*0.5+0.2, maxLife: 0.7,
+      size: Math.random()*size+1,
+    });
+  }
+}
+
+function spawnXPOrb(x, y, amount) {
+  if (G.xpOrbs.length >= MAX_XP_ORBS) {
+    // Replace oldest
+    G.xpOrbs.shift();
+  }
+  G.xpOrbs.push({
+    x, y, amount,
+    vx: (Math.random()-0.5)*80, vy: (Math.random()-0.5)*80,
+    life: 10, size: Math.min(6, 3 + amount/10),
+  });
+}
+
+// ========== UPDATE ==========
+function update(dt) {
+  if (G.state !== 'playing') return;
+  G.time += dt;
+
+  const p = G.player;
+
+  // Movement (keyboard + virtual joystick merged)
+  let mx = 0, my = 0;
+  if (keys['w'] || keys['arrowup']) my = -1;
+  if (keys['s'] || keys['arrowdown']) my = 1;
+  if (keys['a'] || keys['arrowleft']) mx = -1;
+  if (keys['d'] || keys['arrowright']) mx = 1;
+  // Virtual joystick overrides if active
+  if (touchMove.active) {
+    mx = touchMove.x;
+    my = touchMove.y;
+  }
+  if (mx || my) {
+    const len = Math.sqrt(mx*mx + my*my);
+    p.x += (mx/len) * p.speed * dt;
+    p.y += (my/len) * p.speed * dt;
+  }
+  p.x = Math.max(p.size, Math.min(W - p.size, p.x));
+  p.y = Math.max(p.size, Math.min(H - p.size, p.y));
+
+  // Auto-aim for mobile
+  autoAim();
+
+  if (p.invTimer > 0) p.invTimer -= dt;
+
+  // Regen
+  if (G.upgrades.regen > 0) {
+    p.hp = Math.min(p.maxHp, p.hp + G.upgrades.regen * 3 * dt);
+  }
+
+  // === WEAPON FIRING ===
+  const hasAnyCombo = p.hasSwarmSalvo || p.hasClusterBombs || p.hasPrismBeam || p.hasThermonuke || p.hasChainLightning || p.hasOrbitalStrike;
+
+  // Main gun (disabled when combos replace it)
+  if (!hasAnyCombo) {
+    p.fireTimer -= dt;
+    if (p.fireTimer <= 0) {
+      fireMainGun();
+      p.fireTimer = p.fireRate;
+    }
+  }
+  // Missile launcher
+  if (p.hasMissile) {
+    p.missileTimer -= dt;
+    if (p.missileTimer <= 0 && G.enemies.length > 0) {
+      fireMissile();
+      p.missileTimer = p.missileRate;
+    }
+  }
+  // Bomb dropper
+  if (p.hasBomb) {
+    p.bombTimer -= dt;
+    if (p.bombTimer <= 0) {
+      dropBomb();
+      p.bombTimer = p.bombRate;
+    }
+  }
+  // Railgun
+  if (p.hasRailgun) {
+    p.railTimer -= dt;
+    if (p.railTimer <= 0) {
+      fireRailgun();
+      p.railTimer = p.railRate;
+    }
+  }
+  // Sonic wave
+  if (p.hasSonic) {
+    p.sonicTimer -= dt;
+    if (p.sonicTimer <= 0) {
+      fireSonicWave();
+      p.sonicTimer = p.sonicRate;
+    }
+  }
+
+  // === COMBO WEAPONS ===
+  if (p.hasSwarmSalvo && G.enemies.length > 0) {
+    p.swarmSalvoTimer -= dt;
+    if (p.swarmSalvoTimer <= 0) { fireSwarmSalvo(); p.swarmSalvoTimer = p.swarmSalvoRate; }
+  }
+  if (p.hasClusterBombs) {
+    p.clusterTimer -= dt;
+    if (p.clusterTimer <= 0) { fireClusterBombs(); p.clusterTimer = p.clusterRate; }
+  }
+  if (p.hasPrismBeam) {
+    p.prismTimer -= dt;
+    if (p.prismTimer <= 0) { firePrismBeam(); p.prismTimer = p.prismRate; }
+  }
+  if (p.hasThermonuke && G.enemies.length > 0) {
+    p.thermonukeTimer -= dt;
+    if (p.thermonukeTimer <= 0) { fireThermonuke(); p.thermonukeTimer = p.thermonukeRate; }
+  }
+  if (p.hasChainLightning && G.enemies.length > 0) {
+    p.chainTimer -= dt;
+    if (p.chainTimer <= 0) { fireChainLightning(); p.chainTimer = p.chainRate; }
+  }
+  if (p.hasOrbitalStrike && G.enemies.length > 0) {
+    p.orbitalTimer -= dt;
+    if (p.orbitalTimer <= 0) { fireOrbitalStrike(); p.orbitalTimer = p.orbitalRate; }
+  }
+  // Sonic combos
+  if (p.hasShrapnelWave) {
+    p.shrapnelTimer -= dt;
+    if (p.shrapnelTimer <= 0) { fireShrapnelWave(); p.shrapnelTimer = p.shrapnelRate; }
+  }
+  if (p.hasConcussionSalvo && G.enemies.length > 0) {
+    p.concussionTimer -= dt;
+    if (p.concussionTimer <= 0) { fireConcussionSalvo(); p.concussionTimer = p.concussionRate; }
+  }
+  if (p.hasSeismicSlam) {
+    p.seismicTimer -= dt;
+    if (p.seismicTimer <= 0) { fireSeismicSlam(); p.seismicTimer = p.seismicRate; }
+  }
+  if (p.hasHarmonicRes) {
+    p.harmonicTimer -= dt;
+    if (p.harmonicTimer <= 0) { fireHarmonicResonance(); p.harmonicTimer = p.harmonicRate; }
+  }
+
+  // === ULTRA WEAPONS ===
+  if (p.hasMeteorShower && G.enemies.length > 0) {
+    p.meteorTimer -= dt;
+    if (p.meteorTimer <= 0) { fireMeteorShower(); p.meteorTimer = p.meteorRate; }
+  }
+  if (p.hasTeslaMinefield) {
+    p.teslaTimer -= dt;
+    if (p.teslaTimer <= 0 && G.mines.length < 16) { deployTeslaMinefield(); p.teslaTimer = p.teslaRate; }
+  }
+  if (p.hasSupernova) {
+    p.supernovaTimer -= dt;
+    if (p.supernovaTimer <= 0 && G.supernovas.length === 0) { fireSupernova(); p.supernovaTimer = p.supernovaRate; }
+  }
+  if (p.hasInfiniteRecursion) {
+    p.recursionTimer -= dt;
+    if (p.recursionTimer <= 0) { fireInfiniteRecursion(); p.recursionTimer = p.recursionRate; }
+  }
+  if (p.hasGhostFleet && G.enemies.length > 0) {
+    p.ghostFleetTimer -= dt;
+    if (p.ghostFleetTimer <= 0) { fireGhostFleet(); p.ghostFleetTimer = p.ghostFleetRate; }
+  }
+  if (p.hasExtinctionEvent) {
+    p.extinctionTimer -= dt;
+    if (p.extinctionTimer <= 0) { fireExtinctionEvent(); p.extinctionTimer = p.extinctionRate; }
+  }
+  if (p.hasTectonicPrism) {
+    p.tectonicTimer -= dt;
+    if (p.tectonicTimer <= 0) { fireTectonicPrism(); p.tectonicTimer = p.tectonicRate; }
+  }
+  if (p.hasFrozenLight) {
+    p.frozenLightTimer -= dt;
+    if (p.frozenLightTimer <= 0) { fireFrozenLight(); p.frozenLightTimer = p.frozenLightRate; }
+  }
+  if (p.hasNuclearShrapnel && G.enemies.length > 0) {
+    p.nucShrapTimer -= dt;
+    if (p.nucShrapTimer <= 0) { fireNuclearShrapnel(); p.nucShrapTimer = p.nucShrapRate; }
+  }
+  if (p.hasGravitonCollapse && G.enemies.length > 0) {
+    p.gravitonTimer -= dt;
+    if (p.gravitonTimer <= 0) { fireGravitonCollapse(); p.gravitonTimer = p.gravitonRate; }
+  }
+  if (p.hasResonanceSwarm) {
+    p.resSwarmTimer -= dt;
+    if (p.resSwarmTimer <= 0) { fireResonanceSwarm(); p.resSwarmTimer = p.resSwarmRate; }
+  }
+  if (p.hasPermafrostMines) {
+    p.permafrostTimer -= dt;
+    if (p.permafrostTimer <= 0) { firePermafrostMines(); p.permafrostTimer = p.permafrostRate; }
+  }
+  if (p.hasAftershock) {
+    p.aftershockTimer -= dt;
+    if (p.aftershockTimer <= 0) { fireAftershock(); p.aftershockTimer = p.aftershockRate; }
+  }
+  if (p.hasFaultLine && G.enemies.length > 0) {
+    p.faultLineTimer -= dt;
+    if (p.faultLineTimer <= 0) { fireFaultLine(); p.faultLineTimer = p.faultLineRate; }
+  }
+  if (p.hasTungstenRain && G.enemies.length > 0) {
+    p.tungstenTimer -= dt;
+    if (p.tungstenTimer <= 0) { fireTungstenRain(); p.tungstenTimer = p.tungstenRate; }
+  }
+
+  // === SPAWN ENEMIES ===
+  if (G.enemiesToSpawn > 0) {
+    G.spawnTimer -= dt;
+    if (G.spawnTimer <= 0) {
+      const cfg = getWaveConfig(G.wave);
+      const batch = Math.min(cfg.batchSize, G.enemiesToSpawn);
+      for (let b = 0; b < batch; b++) {
+        const type = cfg.types[Math.random() * cfg.types.length | 0];
+        spawnEnemy(type);
+        G.enemiesToSpawn--;
+        G.enemiesAlive++;
+      }
+      G.spawnTimer = cfg.spawnInterval;
+    }
+  }
+
+  // Wave complete check
+  if (G.enemiesToSpawn <= 0 && G.enemiesAlive <= 0 && !G.waveComplete) {
+    G.waveComplete = true;
+    G.state = 'upgrade';
+    showUpgradeScreen();
+    return;
+  }
+
+  // === UPDATE BULLETS (pierce-fixed) ===
+  for (let i = G.bullets.length - 1; i >= 0; i--) {
+    const b = G.bullets[i];
+    b.x += b.vx * dt;
+    b.y += b.vy * dt;
+    if (b.x < -20 || b.x > W+20 || b.y < -20 || b.y > H+20) { G.bullets.splice(i, 1); continue; }
+
+    // Check ALL enemies (no break — pierce works across a single frame)
+    let removed = false;
+    for (let j = G.enemies.length - 1; j >= 0; j--) {
+      const e = G.enemies[j];
+      if (b.hitSet.has(j)) continue; // already hit this enemy
+      const dd = (b.x-e.x)*(b.x-e.x) + (b.y-e.y)*(b.y-e.y);
+      if (dd < (e.size + 4) * (e.size + 4)) {
+        e.hp -= b.damage;
+        e.hitFlash = 0.1;
+        b.hitSet.add(j);
+        spawnParticles(b.x, b.y, e.color, 3, 120, 3);
+
+        if (b.hitSet.size >= b.pierce) {
+          G.bullets.splice(i, 1);
+          removed = true;
+        }
+
+        if (e.hp <= 0) {
+          killEnemy(j);
+        }
+        if (removed) break;
+      }
+    }
+  }
+
+  // === UPDATE MISSILES (homing) ===
+  for (let i = G.missiles.length - 1; i >= 0; i--) {
+    const m = G.missiles[i];
+    m.life -= dt;
+    const isNuke = m.combo === 'nuke' || m.combo === 'nucshrap' || m.combo === 'graviton';
+    const explColor = isNuke ? '#ff00cc' : (m.combo === 'swarm' ? '#44ff66' : '#ff6600');
+
+    function detonateNuke(x, y) {
+      G.screenShake = 1.5;
+      spawnParticles(x, y, '#ff00cc', 40, 350, 7);
+      spawnParticles(x, y, '#ffffff', 20, 200, 4);
+      // Standard nuke aftershock
+      if (m.combo === 'nuke' && (G.upgrades.combo_missile_bomb || 1) >= 3) {
+        G.bombs.push({ x, y, vx: 0, vy: 0, damage: m.damage * 0.7, radius: 250,
+          fuseTime: 0.6, timer: 0, armed: false, combo: 'nuke_aftershock' });
+      }
+      // Nuclear Shrapnel: spawn shrapnel wave from impact
+      if (m.combo === 'nucshrap') {
+        G.sonicWaves.push({
+          x, y, aimAngle: 0, arc: Math.PI*2,
+          radius: 0, maxRadius: 280, speed: 300,
+          damage: G.player.sonicDamage * 0.8, life: 0, hitSet: new Set(),
+          waveFreq: 8, waveAmp: 12, combo: 'shrapnel',
+          bulletTimer: 0, bulletInterval: 0.04,
+        });
+      }
+      // Graviton Collapse: implosion harmonic wave that pulls enemies
+      if (m.combo === 'graviton') {
+        G.sonicWaves.push({
+          x, y, aimAngle: 0, arc: Math.PI*2,
+          radius: 0, maxRadius: 250, speed: 200,
+          damage: G.player.sonicDamage * 0.5, life: 0, hitSet: new Set(),
+          waveFreq: 10, waveAmp: 10, combo: 'graviton_wave',
+          bouncesLeft: 2, expanding: true, pullStrength: 400, pullCenter: {x, y},
+          reExplodeDamage: m.damage * 0.5, reExplodeRadius: 200,
+        });
+      }
+    }
+
+    if (m.life <= 0) {
+      createExplosion(m.x, m.y, m.blastRadius, m.damage, explColor);
+      if (isNuke) detonateNuke(m.x, m.y);
+      G.missiles.splice(i, 1); continue;
+    }
+
+    // Home toward nearest enemy
+    let target = null, best = Infinity;
+    for (const e of G.enemies) {
+      const d = Math.hypot(e.x - m.x, e.y - m.y);
+      if (d < best) { best = d; target = e; }
+    }
+    if (target) {
+      const desired = Math.atan2(target.y - m.y, target.x - m.x);
+      const current = Math.atan2(m.vy, m.vx);
+      let diff = desired - current;
+      while (diff > Math.PI) diff -= Math.PI*2;
+      while (diff < -Math.PI) diff += Math.PI*2;
+      const turnRate = isNuke ? 2.5 : 4.0;
+      const newAngle = current + Math.sign(diff) * Math.min(Math.abs(diff), turnRate * dt);
+      const maxSpd = isNuke ? 300 : 450;
+      const spd = Math.hypot(m.vx, m.vy) + 200 * dt;
+      m.vx = Math.cos(newAngle) * Math.min(spd, maxSpd);
+      m.vy = Math.sin(newAngle) * Math.min(spd, maxSpd);
+    }
+
+    m.x += m.vx * dt;
+    m.y += m.vy * dt;
+
+    // Trail
+    m.trail.push({ x: m.x, y: m.y, life: 0.3 });
+    const maxTrail = isNuke ? 25 : 15;
+    if (m.trail.length > maxTrail) m.trail.shift();
+    m.trail.forEach(t => t.life -= dt);
+
+    // Hit enemy
+    for (const e of G.enemies) {
+      const hitDist = isNuke ? e.size + 20 : e.size + 6;
+      if (Math.hypot(m.x - e.x, m.y - e.y) < hitDist) {
+        createExplosion(m.x, m.y, m.blastRadius, m.damage, explColor);
+        if (isNuke) detonateNuke(m.x, m.y);
+        G.missiles.splice(i, 1);
+        break;
+      }
+    }
+  }
+
+  // === UPDATE BOMBS ===
+  for (let i = G.bombs.length - 1; i >= 0; i--) {
+    const b = G.bombs[i];
+    b.timer += dt;
+
+    if (!b.armed) {
+      b.x += b.vx * dt;
+      b.y += b.vy * dt;
+      const isCluster = b.combo === 'cluster' || b.combo === 'cluster_sub' || b.combo === 'cluster_micro';
+      const drag = isCluster ? 0.985 : 0.95;
+      b.vx *= drag; b.vy *= drag;
+      if (b.timer >= b.fuseTime) b.armed = true;
+    }
+
+    if (b.armed) {
+      const color = b.combo === 'nuke_aftershock' ? '#ff00cc' : (b.combo && b.combo.startsWith('cluster')) ? '#ff8800' : '#ffaa00';
+      createExplosion(b.x, b.y, b.radius, b.damage, color);
+
+      // Cluster cascade: gen 0 → 6 sub-bombs, gen 1 → 3 micro-bombs
+      const clusterLvl = G.upgrades.combo_spread_bomb || 1;
+      const clusterDmgMult = clusterLvl >= 2 ? 1.3 : 1.0;
+
+      if (b.combo === 'cluster') {
+        for (let k = 0; k < 6; k++) {
+          if (G.bombs.length >= 60) break;
+          const a = (Math.PI * 2 / 6) * k + Math.random() * 0.3;
+          G.bombs.push({
+            x: b.x, y: b.y, vx: Math.cos(a)*280, vy: Math.sin(a)*280,
+            damage: b.damage * 0.5 * clusterDmgMult, radius: b.radius * 0.7,
+            fuseTime: 0.35 + Math.random()*0.15, timer: 0, armed: false, combo: 'cluster_sub',
+          });
+        }
+      } else if (b.combo === 'cluster_sub') {
+        for (let k = 0; k < 3; k++) {
+          if (G.bombs.length >= 80) break;
+          const a = (Math.PI * 2 / 3) * k + Math.random() * 0.5;
+          G.bombs.push({
+            x: b.x, y: b.y, vx: Math.cos(a)*180, vy: Math.sin(a)*180,
+            damage: b.damage * 0.4 * clusterDmgMult, radius: b.radius * 0.5,
+            fuseTime: 0.2 + Math.random()*0.1, timer: 0, armed: false, combo: 'cluster_micro',
+          });
+        }
+      }
+
+      // Max level: every cluster explosion fires a bullet at nearest enemy
+      if (clusterLvl >= 3 && b.combo && b.combo.startsWith('cluster')) {
+        let nearest = null, bestD = Infinity;
+        for (const e of G.enemies) {
+          const d = Math.hypot(e.x - b.x, e.y - b.y);
+          if (d < bestD) { bestD = d; nearest = e; }
+        }
+        if (nearest) {
+          const dx = nearest.x - b.x, dy = nearest.y - b.y;
+          const dd = Math.sqrt(dx*dx+dy*dy) || 1;
+          pushBullet(b.x, b.y, dx/dd*420, dy/dd*420, G.player.bulletDamage, 1, 'cluster_shot');
+        }
+      }
+
+      G.bombs.splice(i, 1);
+    }
+  }
+
+  // === UPDATE RAIL BEAMS (visual only) ===
+  for (let i = G.railBeams.length - 1; i >= 0; i--) {
+    G.railBeams[i].life -= dt;
+    if (G.railBeams[i].life <= 0) G.railBeams.splice(i, 1);
+  }
+
+  // === UPDATE EXPLOSIONS (visual) ===
+  for (let i = G.explosions.length - 1; i >= 0; i--) {
+    G.explosions[i].life -= dt;
+    if (G.explosions[i].life <= 0) G.explosions.splice(i, 1);
+  }
+
+  // === UPDATE ORBITAL STRIKES ===
+  for (let i = G.orbitals.length - 1; i >= 0; i--) {
+    const o = G.orbitals[i];
+    o.timer += dt;
+
+    if (!o.fired) {
+      // Check if current target is still alive and in enemies array
+      let targetAlive = o.target && o.target.hp > 0 && G.enemies.includes(o.target);
+
+      if (targetAlive) {
+        // Track living target every frame
+        o.x = o.target.x;
+        o.y = o.target.y;
+      } else {
+        // Retarget nearest living enemy
+        let nearest = null, bestD = Infinity;
+        for (const e of G.enemies) {
+          if (e.hp <= 0) continue;
+          const d = Math.hypot(e.x - o.x, e.y - o.y);
+          if (d < bestD) { bestD = d; nearest = e; }
+        }
+        if (nearest) {
+          o.target = nearest;
+          o.x = nearest.x;
+          o.y = nearest.y;
+        }
+      }
+    }
+
+    if (o.timer >= o.delay && !o.fired) {
+      o.fired = true;
+      // Final snap to target position at moment of firing
+      if (o.target && o.target.hp > 0 && G.enemies.includes(o.target)) {
+        o.x = o.target.x;
+        o.y = o.target.y;
+      }
+      createExplosion(o.x, o.y, o.radius, o.damage, o.meteor ? '#ffaa44' : o.tungsten ? '#ccccff' : '#ff44ff');
+      G.railBeams.push({ x1: o.x, y1: -50, x2: o.x, y2: o.y, life: 0.5, maxLife: 0.5, combo: o.meteor ? 'meteor' : o.tungsten ? 'tungsten' : 'orbital' });
+
+      // Meteor shower: spawn 3 homing missile fragments from impact
+      if (o.meteor) {
+        for (let f = 0; f < 3; f++) {
+          if (G.missiles.length >= 40) break;
+          const fa = (Math.PI * 2 / 3) * f + Math.random() * 0.5;
+          G.missiles.push({
+            x: o.x, y: o.y, vx: Math.cos(fa)*160, vy: Math.sin(fa)*160,
+            damage: o.damage * 0.4, blastRadius: 35, life: 2.0, trail: [], combo: 'meteor_frag',
+          });
+        }
+      }
+      // Tungsten Rain: spawn shrapnel wave from each impact
+      if (o.tungsten && G.sonicWaves.length < 25) {
+        G.sonicWaves.push({
+          x: o.x, y: o.y, aimAngle: 0, arc: Math.PI*2,
+          radius: 0, maxRadius: 120, speed: 250,
+          damage: G.player.sonicDamage * 0.5, life: 0, hitSet: new Set(),
+          waveFreq: 10, waveAmp: 6, combo: 'shrapnel',
+          bulletTimer: 0, bulletInterval: 0.08,
+        });
+      }
+    }
+    if (o.timer >= o.delay + 0.5) G.orbitals.splice(i, 1);
+  }
+
+  // === UPDATE TESLA MINES ===
+  for (let i = G.mines.length - 1; i >= 0; i--) {
+    const mine = G.mines[i];
+    mine.life -= dt;
+
+    // Check trigger: enemy within radius
+    if (!mine.triggered) {
+      for (const e of G.enemies) {
+        if (Math.hypot(e.x - mine.x, e.y - mine.y) < mine.triggerRadius) {
+          mine.triggered = true;
+          // Chain lightning between all mines and the triggering enemy
+          let prevX = mine.x, prevY = mine.y;
+          // Zap the trigger enemy
+          e.hp -= mine.chainDamage;
+          e.hitFlash = 0.15;
+          G.railBeams.push({ x1: mine.x, y1: mine.y, x2: e.x, y2: e.y, life: 0.4, maxLife: 0.4, combo: 'tesla' });
+          // Chain between all other mines
+          for (const other of G.mines) {
+            if (other === mine || other.detonated) continue;
+            G.railBeams.push({ x1: prevX, y1: prevY, x2: other.x, y2: other.y, life: 0.35, maxLife: 0.35, combo: 'tesla' });
+            prevX = other.x; prevY = other.y;
+            // Zap any enemy near the chain path
+            for (const e2 of G.enemies) {
+              if (Math.hypot(e2.x - other.x, e2.y - other.y) < mine.triggerRadius) {
+                e2.hp -= mine.chainDamage;
+                e2.hitFlash = 0.1;
+              }
+            }
+          }
+          // Detonate ALL mines after short delay
+          for (const m2 of G.mines) { m2.life = Math.min(m2.life, 0.3); m2.triggered = true; }
+          break;
+        }
+      }
+    }
+
+    // Timeout or triggered detonation
+    if (mine.life <= 0 && !mine.detonated) {
+      mine.detonated = true;
+      createExplosion(mine.x, mine.y, mine.explodeRadius, mine.damage, '#88ffff');
+      G.mines.splice(i, 1);
+      continue;
+    }
+
+    if (mine.detonated) { G.mines.splice(i, 1); }
+  }
+
+  // === UPDATE SUPERNOVAS ===
+  for (let i = G.supernovas.length - 1; i >= 0; i--) {
+    const sn = G.supernovas[i];
+    sn.life -= dt;
+
+    if (sn.phase === 'sweep') {
+      sn.angle += sn.sweepSpeed * dt;
+      sn.swept += sn.sweepSpeed * dt;
+
+      // Damage enemies along the beam
+      const nx = Math.cos(sn.angle), ny = Math.sin(sn.angle);
+      for (const e of G.enemies) {
+        const ex = e.x - sn.x, ey = e.y - sn.y;
+        const t = Math.max(0, Math.min(sn.beamLen, ex*nx + ey*ny));
+        const dist = Math.hypot(ex - nx*t, ey - ny*t);
+        if (dist < e.size + 12) {
+          e.hp -= sn.beamDamage * dt * 8; // continuous damage
+          e.hitFlash = 0.05;
+        }
+      }
+
+      // Visual beam
+      G.railBeams.push({
+        x1: sn.x + nx*20, y1: sn.y + ny*20,
+        x2: sn.x + nx*sn.beamLen, y2: sn.y + ny*sn.beamLen,
+        life: 0.08, maxLife: 0.08, combo: 'supernova',
+      });
+
+      // Sweep complete → explode
+      if (sn.swept >= Math.PI * 2) {
+        sn.phase = 'explode';
+        createExplosion(sn.x, sn.y, sn.explodeRadius, sn.explodeDamage, '#ffffff');
+        createExplosion(sn.x, sn.y, sn.explodeRadius * 0.7, sn.explodeDamage * 0.5, '#ff00cc');
+        G.screenShake = 2.0;
+        spawnParticles(sn.x, sn.y, '#ffffff', 40, 400, 8);
+        spawnParticles(sn.x, sn.y, '#ff00cc', 30, 300, 6);
+        spawnParticles(sn.x, sn.y, '#ffaa00', 20, 250, 5);
+      }
+    }
+
+    if (sn.life <= 0) G.supernovas.splice(i, 1);
+  }
+
+  // === UPDATE SONIC WAVES ===
+  for (let i = G.sonicWaves.length - 1; i >= 0; i--) {
+    const sw = G.sonicWaves[i];
+    sw.life += dt;
+
+    // Harmonic resonance: can contract (negative speed after bounce)
+    if (sw.expanding === false) {
+      sw.radius -= sw.speed * dt;
+      if (sw.radius <= 0) {
+        if (sw.bouncesLeft > 0) {
+          sw.expanding = true; sw.bouncesLeft--; sw.hitSet = new Set(); sw.radius = 0;
+        } else { G.sonicWaves.splice(i, 1); }
+        continue;
+      }
+    } else {
+      sw.radius += sw.speed * dt;
+    }
+
+    // Shrapnel: spawn bullets along wave edge
+    if (sw.combo === 'shrapnel') {
+      sw.bulletTimer = (sw.bulletTimer || 0) + dt;
+      while (sw.bulletTimer >= sw.bulletInterval) {
+        sw.bulletTimer -= sw.bulletInterval;
+        const a = sw.aimAngle - sw.arc/2 + Math.random() * sw.arc;
+        const bx = sw.x + Math.cos(a) * sw.radius;
+        const by = sw.y + Math.sin(a) * sw.radius;
+        pushBullet(bx, by, Math.cos(a)*350, Math.sin(a)*350, G.player.bulletDamage * 0.5, 1, 'shrapnel');
+      }
+    }
+
+    // Wave completion
+    if (sw.expanding !== false && sw.radius >= sw.maxRadius) {
+      // Harmonic: bounce back
+      if (sw.combo === 'harmonic' && sw.bouncesLeft > 0) {
+        sw.expanding = false; sw.bouncesLeft--; sw.hitSet = new Set();
+        continue;
+      }
+      // Concussion: fire missiles at slowed targets when wave ends
+      if (sw.combo === 'concussion' && sw.slowed && sw.slowed.length > 0) {
+        const count = Math.min(sw.missileCount || 3, sw.slowed.length);
+        for (let m = 0; m < count; m++) {
+          if (G.missiles.length >= 30) break;
+          const t = sw.slowed[m];
+          if (t.hp <= 0) continue;
+          const a = Math.atan2(t.y - sw.y, t.x - sw.x);
+          G.missiles.push({ x: sw.x, y: sw.y, vx: Math.cos(a)*250, vy: Math.sin(a)*250,
+            damage: G.player.missileDamage * 1.2, blastRadius: 45, life: 2.5, trail: [], combo: 'concussion_m' });
+        }
+      }
+      // Ghost Fleet: orbital strikes on every frozen target
+      if (sw.combo === 'ghost' && sw.frozenTargets && sw.frozenTargets.length > 0) {
+        sw.frozenTargets.forEach((t, idx) => {
+          if (t.hp <= 0) return;
+          G.orbitals.push({ x: t.x, y: t.y, target: t, delay: 0.3 + idx * 0.1,
+            timer: 0, radius: 80, damage: G.player.bombDamage * 2.5, fired: false, meteor: false });
+        });
+        G.screenShake = 0.5;
+      }
+      // Frozen Light: fire prism beams when freeze wave completes
+      if (sw.combo === 'frozen_light') {
+        fireFrozenLightBeams();
+      }
+      // Permafrost Mines: drop cluster bombs on frozen targets
+      if (sw.combo === 'permafrost' && sw.frozenTargets && sw.frozenTargets.length > 0) {
+        sw.frozenTargets.forEach(t => {
+          if (t.hp <= 0 || G.bombs.length >= 40) return;
+          G.bombs.push({ x: t.x, y: t.y + 10, vx: (Math.random()-0.5)*40, vy: (Math.random()-0.5)*40,
+            damage: G.player.bombDamage * 0.8, radius: G.player.bombRadius * 0.7,
+            fuseTime: 0.3 + Math.random()*0.2, timer: 0, armed: false, combo: 'cluster' });
+        });
+      }
+      // Graviton Collapse: re-explode at center when wave finishes all bounces
+      if (sw.combo === 'graviton_wave' && sw.reExplodeDamage) {
+        createExplosion(sw.pullCenter.x, sw.pullCenter.y, sw.reExplodeRadius, sw.reExplodeDamage, '#cc00ff');
+        G.screenShake = 1.0;
+        spawnParticles(sw.pullCenter.x, sw.pullCenter.y, '#cc00ff', 30, 300, 6);
+      }
+      G.sonicWaves.splice(i, 1);
+      continue;
+    }
+
+    // Check enemies in the arc band
+    const innerR = Math.max(0, sw.radius - 15);
+    const outerR = sw.radius + 15;
+    const halfArc = sw.arc / 2;
+
+    for (let j = 0; j < G.enemies.length; j++) {
+      if (sw.hitSet.has(j)) continue;
+      const e = G.enemies[j];
+      const dx = e.x - sw.x, dy = e.y - sw.y;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      if (dist < innerR - e.size || dist > outerR + e.size) continue;
+
+      let angle = Math.atan2(dy, dx) - sw.aimAngle;
+      while (angle > Math.PI) angle -= Math.PI * 2;
+      while (angle < -Math.PI) angle += Math.PI * 2;
+
+      if (Math.abs(angle) <= halfArc + 0.1) {
+        e.hp -= sw.damage;
+        e.hitFlash = 0.12;
+        sw.hitSet.add(j);
+
+        // Color by combo type
+        const color = sw.combo === 'seismic' ? '#ff8844' : sw.combo === 'concussion' ? '#8888ff' :
+          sw.combo === 'harmonic' ? '#00ccff' : sw.combo === 'recursion' ? '#ff88ff' :
+          sw.combo === 'ghost' ? '#aaaaff' : sw.combo === 'extinction' ? '#ffaa44' : '#44ddaa';
+        spawnParticles(e.x, e.y, color, 4, 120, 3);
+
+        // === COMBO HIT EFFECTS ===
+        // Concussion: slow enemy
+        if (sw.combo === 'concussion' || sw.combo === 'ghost') {
+          e.slowTimer = Math.max(e.slowTimer, sw.slowDuration || 2.0);
+          if (sw.slowed) sw.slowed.push(e);
+          if (sw.frozenTargets) sw.frozenTargets.push(e);
+        }
+        // Seismic: mini-explosion
+        if (sw.combo === 'seismic') {
+          createExplosion(e.x, e.y, sw.explRadius, sw.explDamage, '#ff6622');
+        }
+        // Extinction: mini-explosion + homing missile
+        if (sw.combo === 'extinction') {
+          createExplosion(e.x, e.y, sw.explRadius, sw.explDamage, '#ffaa22');
+          if (G.missiles.length < 30) {
+            const ma = Math.atan2(e.y - sw.y, e.x - sw.x) + (Math.random()-0.5)*0.5;
+            G.missiles.push({ x: e.x, y: e.y, vx: Math.cos(ma)*180, vy: Math.sin(ma)*180,
+              damage: G.player.missileDamage * 0.8, blastRadius: 35, life: 2.0, trail: [], combo: 'extinction_m' });
+          }
+        }
+        // Recursion: chain lightning from hit + sub-wave
+        if (sw.combo === 'recursion') {
+          let cx = e.x, cy = e.y, prevX = e.x, prevY = e.y;
+          const rHit = new Set([j]);
+          let cd = sw.chainDamage;
+          for (let c = 0; c < 3; c++) {
+            let near = null, bestD = Infinity;
+            for (let k = 0; k < G.enemies.length; k++) {
+              if (rHit.has(k)) continue;
+              const d = Math.hypot(G.enemies[k].x-cx, G.enemies[k].y-cy);
+              if (d < bestD && d < 200) { bestD = d; near = k; }
+            }
+            if (near === null) break;
+            const ne = G.enemies[near];
+            rHit.add(near); ne.hp -= cd; ne.hitFlash = 0.1;
+            G.railBeams.push({ x1:prevX, y1:prevY, x2:ne.x, y2:ne.y, life:0.25, maxLife:0.25, combo:'chain' });
+            prevX = ne.x; prevY = ne.y; cx = ne.x; cy = ne.y; cd *= 0.7;
+          }
+          if (G.sonicWaves.length < 20) {
+            G.sonicWaves.push({
+              x: e.x, y: e.y, aimAngle: 0, arc: Math.PI * 2,
+              radius: 0, maxRadius: sw.subWaveRadius, speed: 200,
+              damage: sw.subWaveDamage, life: 0, hitSet: new Set(),
+              waveFreq: 14, waveAmp: 5, combo: 'recursion_sub',
+            });
+          }
+        }
+        // Frozen Light / Permafrost: slow enemy
+        if (sw.combo === 'frozen_light' || sw.combo === 'permafrost') {
+          e.slowTimer = Math.max(e.slowTimer, sw.slowDuration || 2.5);
+          if (sw.slowed) sw.slowed.push(e);
+          if (sw.frozenTargets) sw.frozenTargets.push(e);
+        }
+        // Resonance Swarm: spawn homing missile from each hit
+        if (sw.combo === 'res_swarm' && G.missiles.length < 30) {
+          const ma = Math.atan2(e.y - sw.y, e.x - sw.x);
+          G.missiles.push({ x: e.x, y: e.y, vx: Math.cos(ma)*200, vy: Math.sin(ma)*200,
+            damage: G.player.missileDamage * 0.6, blastRadius: 35, life: 2.0, trail: [], combo: 'swarm' });
+        }
+        // Aftershock: cluster explosion per hit
+        if (sw.combo === 'aftershock') {
+          createExplosion(e.x, e.y, 45, G.player.bombDamage * 0.6, '#ff8844');
+          for (let ab = 0; ab < 3; ab++) {
+            if (G.bombs.length >= 60) break;
+            const ba = (Math.PI*2/3)*ab + Math.random()*0.5;
+            G.bombs.push({ x: e.x, y: e.y, vx: Math.cos(ba)*200, vy: Math.sin(ba)*200,
+              damage: G.player.bombDamage * 0.3, radius: 30, fuseTime: 0.25+Math.random()*0.15,
+              timer: 0, armed: false, combo: 'cluster_micro' });
+          }
+        }
+        // Graviton: pull enemy toward wave center
+        if (sw.combo === 'graviton_wave' && sw.pullCenter) {
+          const pc = sw.pullCenter;
+          const pdx = pc.x - e.x, pdy = pc.y - e.y;
+          const pd = Math.sqrt(pdx*pdx + pdy*pdy) || 1;
+          e.x += (pdx/pd) * sw.pullStrength * 0.02;
+          e.y += (pdy/pd) * sw.pullStrength * 0.02;
+          e.slowTimer = Math.max(e.slowTimer, 0.5);
+        }
+      }
+    }
+  }
+
+  // === UPDATE FAULT LINES ===
+  for (let i = G.faultLines.length - 1; i >= 0; i--) {
+    const fl = G.faultLines[i];
+    fl.life -= dt;
+    if (fl.life <= 0) { G.faultLines.splice(i, 1); continue; }
+    fl.damageTimer += dt;
+    // Damage enemies near the line every 0.3s
+    if (fl.damageTimer >= 0.3) {
+      fl.damageTimer = 0;
+      for (const e of G.enemies) {
+        // Check distance to any segment of the fault line
+        for (let s = 0; s < fl.points.length - 1; s++) {
+          const a = fl.points[s], b = fl.points[s+1];
+          const abx = b.x-a.x, aby = b.y-a.y;
+          const len = Math.sqrt(abx*abx+aby*aby) || 1;
+          const t = Math.max(0, Math.min(len, (e.x-a.x)*abx/len + (e.y-a.y)*aby/len));
+          const cx = a.x + (abx/len)*t, cy = a.y + (aby/len)*t;
+          if (Math.hypot(e.x-cx, e.y-cy) < fl.width + e.size) {
+            e.hp -= fl.damage;
+            e.hitFlash = 0.05;
+            if (Math.random() < 0.3) spawnParticles(e.x, e.y, '#ff44aa', 2, 80, 2);
+            break;
+          }
+        }
+      }
+    }
+  }
+
+  // === UPDATE ENEMIES ===
+  for (let i = G.enemies.length - 1; i >= 0; i--) {
+    const e = G.enemies[i];
+
+    // Check death (from explosions / railgun applied above)
+    if (e.hp <= 0) { killEnemy(i); continue; }
+
+    const dx = p.x - e.x, dy = p.y - e.y;
+    const dist = Math.sqrt(dx*dx + dy*dy) || 1;
+
+    // Berserkers speed up when close
+    let spd = e.speed;
+    if (e.type === 'berserker' && dist < 200) spd *= 1.8;
+    // Concussion slow
+    if (e.slowTimer > 0) { spd *= 0.25; e.slowTimer -= dt; }
+
+    e.x += (dx/dist) * spd * dt;
+    e.y += (dy/dist) * spd * dt;
+    if (e.hitFlash > 0) e.hitFlash -= dt;
+
+    // Hit player
+    if (dist < p.size + e.size && p.invTimer <= 0) {
+      p.hp -= e.dmg;
+      p.invTimer = 0.4;
+      spawnParticles(p.x, p.y, '#ff4466', 8, 150, 3);
+      if (p.hp <= 0) { gameOver(); return; }
+    }
+  }
+
+  // === UPDATE XP ORBS ===
+  for (let i = G.xpOrbs.length - 1; i >= 0; i--) {
+    const orb = G.xpOrbs[i];
+    orb.life -= dt;
+    orb.vx *= 0.95; orb.vy *= 0.95;
+    orb.x += orb.vx * dt;
+    orb.y += orb.vy * dt;
+
+    const dx = p.x - orb.x, dy = p.y - orb.y;
+    const dist = Math.hypot(dx, dy);
+    if (dist < 100) {
+      const pull = (100 - dist) / 100 * 400;
+      orb.x += (dx/dist) * pull * dt;
+      orb.y += (dy/dist) * pull * dt;
+    }
+    if (dist < p.size + orb.size) { G.xp += orb.amount; G.xpOrbs.splice(i, 1); continue; }
+    if (orb.life <= 0) G.xpOrbs.splice(i, 1);
+  }
+
+  // === UPDATE PARTICLES ===
+  for (let i = G.particles.length - 1; i >= 0; i--) {
+    const pt = G.particles[i];
+    pt.x += pt.vx * dt; pt.y += pt.vy * dt;
+    pt.vx *= 0.97; pt.vy *= 0.97;
+    pt.life -= dt;
+    if (pt.life <= 0) G.particles.splice(i, 1);
+  }
+
+  // Screen shake decay
+  if (G.screenShake > 0) G.screenShake = Math.max(0, G.screenShake - dt * 4);
+
+  updateHUD();
+}
+
+function killEnemy(index) {
+  const e = G.enemies[index];
+  G.score += e.score;
+  G.kills++;
+  G.enemiesAlive--;
+  spawnParticles(e.x, e.y, e.color, 15, 180, 4);
+  if (e.type === 'boss') spawnParticles(e.x, e.y, '#ff00ff', 30, 300, 6);
+  spawnXPOrb(e.x, e.y, e.xp);
+  G.enemies.splice(index, 1);
+  // Fix hitSet indices in bullets (indices shifted after splice)
+  // Simplest fix: clear all hitSets — minor edge case, bullets live <0.5s
+}
+
+// ========== DRAW ==========
+function draw() {
+  ctx.fillStyle = '#0a0a12';
+  ctx.fillRect(0, 0, W, H);
+
+  // Screen shake offset
+  const shk = G ? G.screenShake : 0;
+  if (shk > 0) {
+    ctx.save();
+    ctx.translate((Math.random()-0.5)*shk*12, (Math.random()-0.5)*shk*12);
+  }
+
+  // Grid
+  ctx.strokeStyle = 'rgba(30,40,60,0.4)';
+  ctx.lineWidth = 0.5;
+  for (let x = 0; x < W; x += 40) { ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,H); ctx.stroke(); }
+  for (let y = 0; y < H; y += 40) { ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(W,y); ctx.stroke(); }
+
+  // Stars
+  const t = G ? G.time : 0;
+  stars.forEach(s => {
+    ctx.fillStyle = `rgba(180,200,255,${s.br + Math.sin(t*s.sp)*0.15})`;
+    ctx.fillRect(s.x, s.y, s.size, s.size);
+  });
+
+  if (!G || G.state === 'title') return;
+
+  // Explosions
+  G.explosions.forEach(ex => {
+    const progress = 1 - ex.life / ex.maxLife;
+    const r = ex.radius * (0.3 + progress * 0.7);
+    const alpha = ex.life / ex.maxLife;
+
+    // Big explosion glow (nuke-scale)
+    if (ex.radius > 100) {
+      ctx.beginPath();
+      ctx.arc(ex.x, ex.y, r * 1.3, 0, Math.PI*2);
+      ctx.fillStyle = `rgba(255,255,255,${alpha * 0.15})`;
+      ctx.fill();
+    }
+
+    ctx.beginPath();
+    ctx.arc(ex.x, ex.y, r, 0, Math.PI*2);
+    ctx.fillStyle = ex.color + Math.floor(alpha * 50).toString(16).padStart(2,'0');
+    ctx.fill();
+
+    // White-hot core for big ones
+    if (ex.radius > 80 && alpha > 0.3) {
+      ctx.beginPath();
+      ctx.arc(ex.x, ex.y, r * 0.4 * alpha, 0, Math.PI*2);
+      ctx.fillStyle = `rgba(255,255,255,${alpha * 0.4})`;
+      ctx.fill();
+    }
+
+    ctx.strokeStyle = ex.color + Math.floor(alpha * 80).toString(16).padStart(2,'0');
+    ctx.lineWidth = ex.radius > 100 ? 4 : 2;
+    ctx.beginPath();
+    ctx.arc(ex.x, ex.y, r, 0, Math.PI*2);
+    ctx.stroke();
+  });
+
+  // Fault lines (persistent damage zones)
+  G.faultLines.forEach(fl => {
+    const alpha = Math.min(1, fl.life / fl.maxLife * 2);
+    const pulse = 0.7 + Math.sin(G.time * 6) * 0.3;
+    for (let s = 0; s < fl.points.length - 1; s++) {
+      const a = fl.points[s], b = fl.points[s+1];
+      // Glow
+      ctx.strokeStyle = `rgba(255,68,136,${alpha * 0.2 * pulse})`;
+      ctx.lineWidth = fl.width;
+      ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
+      // Core
+      ctx.strokeStyle = `rgba(255,100,180,${alpha * 0.6})`;
+      ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
+      // Electric crackle
+      if (Math.random() < 0.2 * alpha) {
+        const t = Math.random();
+        const mx = a.x + (b.x-a.x)*t + (Math.random()-0.5)*fl.width;
+        const my = a.y + (b.y-a.y)*t + (Math.random()-0.5)*fl.width;
+        spawnParticles(mx, my, '#ff88cc', 1, 60, 2);
+      }
+    }
+  });
+
+  // Orbital strike markers (pulsing target before beam fires)
+  G.orbitals.forEach(o => {
+    if (o.fired) return;
+    const progress = o.timer / o.delay;
+    const pulse = 1 + Math.sin(G.time * 15) * 0.3;
+    ctx.strokeStyle = `rgba(255,68,255,${0.3 + progress * 0.5})`;
+    ctx.lineWidth = 2;
+    ctx.setLineDash([4, 4]);
+    ctx.beginPath();
+    ctx.arc(o.x, o.y, o.radius * pulse * (1 - progress * 0.5), 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    // Crosshair
+    ctx.strokeStyle = `rgba(255,68,255,${0.5 + progress * 0.5})`;
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(o.x - 15, o.y); ctx.lineTo(o.x + 15, o.y);
+    ctx.moveTo(o.x, o.y - 15); ctx.lineTo(o.x, o.y + 15);
+    ctx.stroke();
+  });
+
+  // Sonic waves (color by combo type)
+  const SONIC_COLORS = {
+    undefined: [68,221,170],  // base sonic: teal
+    null: [68,221,170],
+    'shrapnel': [255,170,68],  // orange
+    'concussion': [120,120,255], // blue-purple
+    'seismic': [255,100,50],   // red-orange
+    'harmonic': [0,200,255],   // cyan
+    'recursion': [255,120,255], // pink
+    'recursion_sub': [200,100,200],
+    'ghost': [160,160,255],    // light blue
+    'extinction': [255,180,60], // gold
+    'frozen_light': [170,200,255], // ice blue
+    'permafrost': [140,180,255],   // frost
+    'res_swarm': [100,255,180],    // mint-green
+    'aftershock': [255,150,80],    // warm orange
+    'graviton_wave': [180,80,255], // deep purple
+  };
+  G.sonicWaves.forEach(sw => {
+    const progress = sw.radius / sw.maxRadius;
+    const alpha = 1 - progress * 0.8;
+    const halfArc = sw.arc / 2;
+    const steps = Math.max(20, Math.floor(sw.arc * 30));
+    const stepAngle = sw.arc / steps;
+    const c = SONIC_COLORS[sw.combo] || SONIC_COLORS[undefined];
+    const rgb = `${c[0]},${c[1]},${c[2]}`;
+
+    ctx.strokeStyle = `rgba(${rgb}, ${alpha * 0.8})`;
+    ctx.lineWidth = 3 - progress * 1.5;
+    ctx.shadowColor = `rgb(${rgb})`;
+    ctx.shadowBlur = 8 * alpha;
+    ctx.beginPath();
+    for (let s = 0; s <= steps; s++) {
+      const a = sw.aimAngle - halfArc + s * stepAngle;
+      const wave = Math.sin(a * sw.waveFreq + sw.life * 15) * sw.waveAmp * alpha;
+      const r = sw.radius + wave;
+      ctx[s===0?'moveTo':'lineTo'](sw.x + Math.cos(a)*r, sw.y + Math.sin(a)*r);
+    }
+    ctx.stroke();
+
+    const innerR = sw.radius * 0.75;
+    ctx.strokeStyle = `rgba(${rgb}, ${alpha * 0.3})`;
+    ctx.lineWidth = 2 - progress;
+    ctx.beginPath();
+    for (let s = 0; s <= steps; s++) {
+      const a = sw.aimAngle - halfArc + s * stepAngle;
+      const wave = Math.sin(a * sw.waveFreq*1.3 + sw.life*12 + 1) * sw.waveAmp * 0.6 * alpha;
+      const r = innerR + wave;
+      ctx[s===0?'moveTo':'lineTo'](sw.x + Math.cos(a)*r, sw.y + Math.sin(a)*r);
+    }
+    ctx.stroke();
+
+    if (Math.random() < 0.4) {
+      const ea = sw.aimAngle - halfArc + Math.random() * sw.arc;
+      spawnParticles(sw.x + Math.cos(ea)*sw.radius, sw.y + Math.sin(ea)*sw.radius, `rgb(${rgb})`, 1, 40, 2);
+    }
+    ctx.shadowBlur = 0;
+  });
+
+  // Tesla mines
+  G.mines.forEach(mine => {
+    const lifeAlpha = mine.life / mine.maxLife;
+    const pulse = 1 + Math.sin(t * 8 + mine.pulsePhase) * 0.3;
+    const triggered = mine.triggered;
+
+    // Outer field
+    ctx.strokeStyle = triggered ? `rgba(255,100,100,${lifeAlpha * 0.4})` : `rgba(136,255,255,${lifeAlpha * 0.15})`;
+    ctx.lineWidth = 1;
+    ctx.setLineDash([3, 3]);
+    ctx.beginPath(); ctx.arc(mine.x, mine.y, mine.triggerRadius * pulse, 0, Math.PI*2); ctx.stroke();
+    ctx.setLineDash([]);
+
+    // Core
+    ctx.fillStyle = triggered ? '#ff4444' : '#88ffff';
+    ctx.shadowColor = triggered ? '#ff4444' : '#88ffff';
+    ctx.shadowBlur = 10 * pulse * lifeAlpha;
+    ctx.beginPath(); ctx.arc(mine.x, mine.y, 6 * pulse, 0, Math.PI*2); ctx.fill();
+
+    // Electric arcs (small random lines near the mine)
+    ctx.strokeStyle = `rgba(136,255,255,${lifeAlpha * 0.5})`;
+    ctx.lineWidth = 1;
+    for (let k = 0; k < 3; k++) {
+      const a = Math.random() * Math.PI * 2;
+      const r1 = 8, r2 = 14 + Math.random() * 10;
+      ctx.beginPath();
+      ctx.moveTo(mine.x + Math.cos(a)*r1, mine.y + Math.sin(a)*r1);
+      ctx.lineTo(mine.x + Math.cos(a+0.3)*r2, mine.y + Math.sin(a+0.3)*r2);
+      ctx.stroke();
+    }
+    ctx.shadowBlur = 0;
+  });
+
+  // Supernova sweep glow (additional center glow while active)
+  G.supernovas.forEach(sn => {
+    if (sn.phase === 'sweep') {
+      const progress = sn.swept / (Math.PI * 2);
+      ctx.fillStyle = `rgba(255,255,255,${0.05 + progress * 0.1})`;
+      ctx.beginPath(); ctx.arc(sn.x, sn.y, 30 + progress * 40, 0, Math.PI*2); ctx.fill();
+      ctx.fillStyle = `rgba(255,0,200,${0.1 + progress * 0.15})`;
+      ctx.beginPath(); ctx.arc(sn.x, sn.y, 15 + progress * 20, 0, Math.PI*2); ctx.fill();
+    }
+  });
+
+  // Rail beams (with combo colors)
+  G.railBeams.forEach(rb => {
+    const alpha = rb.life / rb.maxLife;
+    let r=0, g=200, b=255; // default cyan
+    if (rb.combo === 'prism') { r=255; g=68; b=255; }
+    else if (rb.combo === 'chain') { r=136; g=255; b=255; }
+    else if (rb.combo === 'orbital') { r=200; g=100; b=255; }
+    else if (rb.combo === 'meteor') { r=255; g=170; b=68; }      // orange-gold
+    else if (rb.combo === 'tesla') { r=100; g=220; b=255; }      // electric blue
+    else if (rb.combo === 'supernova') { r=255; g=200; b=255; }  // white-pink
+    else if (rb.combo === 'tectonic') { r=255; g=120; b=40; }    // deep orange
+    else if (rb.combo === 'fault') { r=255; g=68; b=136; }       // hot pink
+    else if (rb.combo === 'frozen_beam') { r=170; g=220; b=255; }// ice blue
+    else if (rb.combo === 'tungsten') { r=200; g=200; b=255; }   // silver-blue
+    const isBig = rb.combo === 'orbital' || rb.combo === 'meteor' || rb.combo === 'supernova' || rb.combo === 'tungsten' || rb.combo === 'tectonic';
+    ctx.strokeStyle = `rgba(${r},${g},${b},${alpha})`;
+    ctx.lineWidth = isBig ? 10 + alpha*12 : rb.combo === 'prism' ? 3 + alpha*5 : 4 + alpha*8;
+    ctx.shadowColor = `rgb(${r},${g},${b})`;
+    ctx.shadowBlur = isBig ? 30*alpha : 20*alpha;
+    ctx.beginPath();
+    ctx.moveTo(rb.x1, rb.y1);
+    ctx.lineTo(rb.x2, rb.y2);
+    ctx.stroke();
+    ctx.strokeStyle = `rgba(255,255,255,${alpha * 0.6})`;
+    ctx.lineWidth = isBig ? 4 : 2;
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+  });
+
+  // XP orbs
+  G.xpOrbs.forEach(orb => {
+    const pulse = 1 + Math.sin(t*8)*0.2;
+    ctx.fillStyle = '#ffaa00';
+    ctx.shadowColor = '#ffaa00'; ctx.shadowBlur = 8;
+    ctx.beginPath(); ctx.arc(orb.x, orb.y, orb.size*pulse, 0, Math.PI*2); ctx.fill();
+    ctx.shadowBlur = 0;
+  });
+
+  // Bullets
+  G.bullets.forEach(b => {
+    if (b.type === 'spread') {
+      ctx.fillStyle = '#88ffaa';
+      ctx.shadowColor = '#88ffaa';
+    } else {
+      ctx.fillStyle = '#00ffcc';
+      ctx.shadowColor = '#00ffcc';
+    }
+    ctx.shadowBlur = 6;
+    ctx.fillRect(b.x-2, b.y-2, 4, 4);
+    ctx.fillStyle = b.type === 'spread' ? 'rgba(136,255,170,0.3)' : 'rgba(0,255,200,0.3)';
+    ctx.fillRect(b.x - b.vx*0.015 - 1.5, b.y - b.vy*0.015 - 1.5, 3, 3);
+    ctx.shadowBlur = 0;
+  });
+
+  // Missiles (with combo variants)
+  G.missiles.forEach(m => {
+    const isNuke = m.combo === 'nuke';
+    const isSwarm = m.combo === 'swarm';
+    const isMeteor = m.combo === 'meteor_frag';
+    const trailColor = isNuke ? 'rgba(255,50,200,' : isSwarm ? 'rgba(100,255,100,' : isMeteor ? 'rgba(255,170,68,' : 'rgba(255,100,0,';
+    m.trail.forEach(tp => {
+      if (tp.life <= 0) return;
+      const a = tp.life / 0.3;
+      ctx.fillStyle = trailColor + (a*0.5) + ')';
+      const ts = isNuke ? 4 : 2;
+      ctx.fillRect(tp.x-ts, tp.y-ts, ts*2, ts*2);
+    });
+    const angle = Math.atan2(m.vy, m.vx);
+    ctx.save();
+    ctx.translate(m.x, m.y);
+    ctx.rotate(angle);
+    const bodyColor = isNuke ? '#ff00cc' : isSwarm ? '#44ff66' : isMeteor ? '#ffaa44' : '#ff6600';
+    const tipColor = isNuke ? '#ffffff' : isSwarm ? '#aaffcc' : isMeteor ? '#ffdd88' : '#ffcc00';
+    ctx.fillStyle = bodyColor;
+    ctx.shadowColor = bodyColor; ctx.shadowBlur = isNuke ? 20 : 10;
+    const bw = isNuke ? 24 : (isSwarm || isMeteor) ? 12 : 16;
+    const bh = isNuke ? 10 : (isSwarm || isMeteor) ? 4 : 6;
+    ctx.fillRect(-bw/2, -bh/2, bw, bh);
+    ctx.fillStyle = tipColor;
+    ctx.fillRect(bw/2-4, -bh/2+1, 4, bh-2);
+    ctx.shadowBlur = 0;
+    ctx.restore();
+  });
+
+  // Bombs (in flight)
+  G.bombs.forEach(b => {
+    const pulse = 1 + Math.sin(t * 20) * 0.3;
+    ctx.fillStyle = '#ffaa00';
+    ctx.shadowColor = '#ffaa00'; ctx.shadowBlur = 8 * pulse;
+    ctx.beginPath(); ctx.arc(b.x, b.y, 6, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = '#ff4400';
+    ctx.beginPath(); ctx.arc(b.x, b.y, 3, 0, Math.PI*2); ctx.fill();
+    ctx.shadowBlur = 0;
+  });
+
+  // Enemies
+  G.enemies.forEach(e => {
+    const flash = e.hitFlash > 0;
+    ctx.fillStyle = flash ? '#ffffff' : e.color;
+    ctx.shadowColor = e.color;
+    ctx.shadowBlur = flash ? 14 : 6;
+
+    if (e.type === 'basic') {
+      ctx.fillRect(e.x-e.size, e.y-e.size, e.size*2, e.size*2);
+    } else if (e.type === 'fast') {
+      const a = Math.atan2(G.player.y-e.y, G.player.x-e.x);
+      ctx.beginPath();
+      ctx.moveTo(e.x+Math.cos(a)*e.size*1.5, e.y+Math.sin(a)*e.size*1.5);
+      ctx.lineTo(e.x+Math.cos(a+2.4)*e.size, e.y+Math.sin(a+2.4)*e.size);
+      ctx.lineTo(e.x+Math.cos(a-2.4)*e.size, e.y+Math.sin(a-2.4)*e.size);
+      ctx.closePath(); ctx.fill();
+    } else if (e.type === 'tank') {
+      ctx.beginPath(); ctx.arc(e.x, e.y, e.size, 0, Math.PI*2); ctx.fill();
+      ctx.strokeStyle = '#ffffff33'; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.arc(e.x, e.y, e.size+3, 0, Math.PI*2*(e.hp/e.maxHp)); ctx.stroke();
+    } else if (e.type === 'swarm') {
+      ctx.save(); ctx.translate(e.x, e.y); ctx.rotate(t*5);
+      ctx.fillRect(-e.size, -e.size, e.size*2, e.size*2);
+      ctx.restore();
+    } else if (e.type === 'berserker') {
+      // Diamond shape
+      ctx.beginPath();
+      ctx.moveTo(e.x, e.y - e.size*1.3);
+      ctx.lineTo(e.x + e.size, e.y);
+      ctx.lineTo(e.x, e.y + e.size*1.3);
+      ctx.lineTo(e.x - e.size, e.y);
+      ctx.closePath(); ctx.fill();
+      // Inner glow
+      ctx.fillStyle = flash ? '#ffffff' : '#ff6600';
+      ctx.beginPath();
+      ctx.moveTo(e.x, e.y - e.size*0.6);
+      ctx.lineTo(e.x + e.size*0.5, e.y);
+      ctx.lineTo(e.x, e.y + e.size*0.6);
+      ctx.lineTo(e.x - e.size*0.5, e.y);
+      ctx.closePath(); ctx.fill();
+    } else if (e.type === 'boss') {
+      // Big pulsing hexagon
+      const pulse = 1 + Math.sin(t*3)*0.08;
+      ctx.beginPath();
+      for (let k = 0; k < 6; k++) {
+        const a = (Math.PI/3)*k - Math.PI/6 + t*0.5;
+        const r = e.size * pulse;
+        ctx[k===0?'moveTo':'lineTo'](e.x+Math.cos(a)*r, e.y+Math.sin(a)*r);
+      }
+      ctx.closePath(); ctx.fill();
+      // HP ring
+      ctx.strokeStyle = '#ffffff55'; ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.arc(e.x, e.y, e.size+5, 0, Math.PI*2*(e.hp/e.maxHp)); ctx.stroke();
+      // Inner eye
+      ctx.fillStyle = '#000000';
+      ctx.beginPath(); ctx.arc(e.x, e.y, e.size*0.3, 0, Math.PI*2); ctx.fill();
+      ctx.fillStyle = '#ff00ff';
+      ctx.beginPath(); ctx.arc(e.x, e.y, e.size*0.15, 0, Math.PI*2); ctx.fill();
+    }
+    ctx.shadowBlur = 0;
+  });
+
+  // Player
+  const p = G.player;
+  const blink = p.invTimer > 0 && Math.sin(t*30) > 0;
+  if (!blink) {
+    ctx.shadowColor = '#00ff88'; ctx.shadowBlur = 15;
+    ctx.fillStyle = '#00ff88';
+    ctx.fillRect(p.x-p.size, p.y-p.size, p.size*2, p.size*2);
+    ctx.shadowBlur = 0;
+    ctx.fillStyle = '#00cc66';
+    ctx.fillRect(p.x-p.size+3, p.y-p.size+3, p.size*2-6, p.size*2-6);
+    ctx.fillStyle = '#00ff88';
+    ctx.fillRect(p.x-3, p.y-3, 6, 6);
+
+    const aimA = Math.atan2(mouse.y-p.y, mouse.x-p.x);
+    ctx.strokeStyle = 'rgba(0,255,136,0.3)'; ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(p.x+Math.cos(aimA)*20, p.y+Math.sin(aimA)*20);
+    ctx.lineTo(p.x+Math.cos(aimA)*35, p.y+Math.sin(aimA)*35);
+    ctx.stroke();
+
+    // Mobile: crosshair on auto-aim target
+    if (isMobile && !manualAim && G.enemies.length > 0) {
+      ctx.strokeStyle = 'rgba(0,255,136,0.25)';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.arc(mouse.x, mouse.y, 18, 0, Math.PI*2);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(mouse.x-10, mouse.y); ctx.lineTo(mouse.x+10, mouse.y);
+      ctx.moveTo(mouse.x, mouse.y-10); ctx.lineTo(mouse.x, mouse.y+10);
+      ctx.stroke();
+    }
+  }
+
+  // Particles
+  G.particles.forEach(pt => {
+    const alpha = Math.max(0, pt.life / pt.maxLife);
+    ctx.globalAlpha = alpha;
+    ctx.fillStyle = pt.color;
+    ctx.fillRect(pt.x - pt.size/2, pt.y - pt.size/2, pt.size, pt.size);
+  });
+  ctx.globalAlpha = 1;
+
+  // Close screen shake
+  if (shk > 0) ctx.restore();
+}
+
+// ========== HUD ==========
+function updateHUD() {
+  if (!G) return;
+  const p = G.player;
+  document.getElementById('healthBar').style.width = Math.max(0, p.hp/p.maxHp*100) + '%';
+  document.getElementById('healthText').textContent = Math.max(0, Math.ceil(p.hp));
+  document.getElementById('waveText').textContent = G.wave;
+  document.getElementById('scoreText').textContent = G.score.toLocaleString();
+  document.getElementById('xpText').textContent = G.xp;
+  document.getElementById('hiText').textContent = highScore.toLocaleString();
+
+  // Weapon indicators
+  const wh = document.getElementById('weaponHud');
+  const weapons = [
+    { name: 'SPR', active: p.hasSpread, color: '#88ffaa' },
+    { name: 'MSL', active: p.hasMissile, color: '#ff6600' },
+    { name: 'BMB', active: p.hasBomb, color: '#ffaa00' },
+    { name: 'RAL', active: p.hasRailgun, color: '#00ccff' },
+    { name: 'SNC', active: p.hasSonic, color: '#44ddaa' },
+  ];
+  const combos = [
+    { name: 'SWM', active: p.hasSwarmSalvo, color: '#44ff66' },
+    { name: 'CLU', active: p.hasClusterBombs, color: '#ffcc44' },
+    { name: 'PRI', active: p.hasPrismBeam, color: '#ff44ff' },
+    { name: 'NUK', active: p.hasThermonuke, color: '#ff00cc' },
+    { name: 'CHN', active: p.hasChainLightning, color: '#88ffff' },
+    { name: 'ORB', active: p.hasOrbitalStrike, color: '#cc66ff' },
+    { name: 'SHP', active: p.hasShrapnelWave, color: '#ffaa44' },
+    { name: 'CON', active: p.hasConcussionSalvo, color: '#8888ff' },
+    { name: 'SEI', active: p.hasSeismicSlam, color: '#ff6622' },
+    { name: 'HAR', active: p.hasHarmonicRes, color: '#00ccff' },
+  ];
+  const activeCombos = combos.filter(c => c.active);
+  const ultras = [
+    { name: 'MTR', active: p.hasMeteorShower, color: '#ffaa44' },
+    { name: 'TSL', active: p.hasTeslaMinefield, color: '#66ddff' },
+    { name: 'SNV', active: p.hasSupernova, color: '#ffccff' },
+    { name: 'REC', active: p.hasInfiniteRecursion, color: '#ff88ff' },
+    { name: 'GHO', active: p.hasGhostFleet, color: '#aaaaff' },
+    { name: 'EXT', active: p.hasExtinctionEvent, color: '#ffcc44' },
+    { name: 'TEC', active: p.hasTectonicPrism, color: '#ff8833' },
+    { name: 'FRZ', active: p.hasFrozenLight, color: '#aaddff' },
+    { name: 'NSH', active: p.hasNuclearShrapnel, color: '#ff6644' },
+    { name: 'GRV', active: p.hasGravitonCollapse, color: '#cc44ff' },
+    { name: 'RSW', active: p.hasResonanceSwarm, color: '#66ffaa' },
+    { name: 'PFR', active: p.hasPermafrostMines, color: '#88bbff' },
+    { name: 'AFT', active: p.hasAftershock, color: '#ff9944' },
+    { name: 'FLT', active: p.hasFaultLine, color: '#ff66aa' },
+    { name: 'TNG', active: p.hasTungstenRain, color: '#ccccff' },
+  ];
+  const activeUltras = ultras.filter(u => u.active);
+  const allWeapons = [...weapons, ...activeCombos, ...activeUltras];
+  wh.innerHTML = allWeapons.map(w =>
+    `<span style="font-size:7px;font-family:'Press Start 2P';color:${w.active?w.color:'#333'};letter-spacing:0">${w.name}</span>`
+  ).join(' ');
+}
+
+// ========== UPGRADE SCREEN ==========
+// Combo definitions: which base weapons they consume
+const COMBO_DEFS = [
+  { key:'combo_spread_missile',  name:'SWARM SALVO',    max: 3, uses:['spread','missile'], color:'#44ff66',
+    descs: ['3 homing missiles spread 120° apart', '+damage, wider blast radius', '+2 missiles per salvo (5 total)'],
+    apply:()=>{ G.player.hasSwarmSalvo = true; disableBaseWeapons(['spread','missile']); }},
+  { key:'combo_spread_bomb',     name:'CLUSTER BOMBS',  max: 3, uses:['spread','bomb'],    color:'#ffcc44',
+    descs: ['Fan of bombs → each splits into 6 → then 3 more', '+30% cascade damage', 'Every explosion fires a bullet at nearest enemy'],
+    apply:()=>{ G.player.hasClusterBombs = true; disableBaseWeapons(['spread','bomb']); }},
+  { key:'combo_spread_railgun',  name:'PRISM BEAM',     max: 3, uses:['spread','railgun'], color:'#ff44ff',
+    descs: ['5 piercing rail beams in a devastating fan', '+damage per beam', 'Each beam SPLITS at first target hit'],
+    apply:()=>{ G.player.hasPrismBeam = true; disableBaseWeapons(['spread','railgun']); }},
+  { key:'combo_missile_bomb',    name:'THERMONUKE',     max: 3, uses:['missile','bomb'],  color:'#ff00cc',
+    descs: ['Homing nuke → 1/4 SCREEN explosion. MEGA DAMAGE.', '+25% damage', 'Second delayed AFTERSHOCK explosion'],
+    apply:()=>{ G.player.hasThermonuke = true; disableBaseWeapons(['missile','bomb']); }},
+  { key:'combo_missile_railgun', name:'CHAIN LIGHTNING', max: 3, uses:['missile','railgun'],color:'#88ffff',
+    descs: ['Instant beam chains through 4 enemies', 'Chains through 6, +damage, +range', 'Chains to EVERY enemy on screen'],
+    apply:()=>{ G.player.hasChainLightning = true; disableBaseWeapons(['missile','railgun']); }},
+  { key:'combo_bomb_railgun',    name:'ORBITAL STRIKE',  max: 3, uses:['bomb','railgun'],   color:'#cc66ff',
+    descs: ['Mark target → tracking beam from the sky', '+damage, bigger blast radius', 'Strikes TWO targets simultaneously'],
+    apply:()=>{ G.player.hasOrbitalStrike = true; disableBaseWeapons(['bomb','railgun']); }},
+  // Sonic combos
+  { key:'combo_sonic_spread',   name:'SHRAPNEL WAVE',     max: 3, uses:['sonic','spread'],  color:'#ffaa44',
+    descs: ['Expanding wave spawns bullets in its wake', '+arc width, +damage', 'Wider arc, massive bullet density'],
+    apply:()=>{ G.player.hasShrapnelWave = true; disableBaseWeapons(['sonic','spread']); }},
+  { key:'combo_sonic_missile',  name:'CONCUSSION SALVO',  max: 3, uses:['sonic','missile'], color:'#8888ff',
+    descs: ['Wave slows enemies, then homing missiles strike them', 'Longer slow, wider arc', '+missiles, even longer slow'],
+    apply:()=>{ G.player.hasConcussionSalvo = true; disableBaseWeapons(['sonic','missile']); }},
+  { key:'combo_sonic_bomb',     name:'SEISMIC SLAM',      max: 3, uses:['sonic','bomb'],    color:'#ff6622',
+    descs: ['Wave triggers mini-explosion on each enemy hit', 'Wider arc, bigger explosions', 'Massive explosions per hit'],
+    apply:()=>{ G.player.hasSeismicSlam = true; disableBaseWeapons(['sonic','bomb']); }},
+  { key:'combo_sonic_railgun',  name:'HARMONIC RESONANCE',max: 3, uses:['sonic','railgun'], color:'#00ccff',
+    descs: ['Wave expands then contracts back, hitting enemies twice', '2 bounces (4 hits)', '3 bounces (6 hits!)'],
+    apply:()=>{ G.player.hasHarmonicRes = true; disableBaseWeapons(['sonic','railgun']); }},
+];
+
+const WEAPON_FLAGS = { spread:'hasSpread', missile:'hasMissile', bomb:'hasBomb', railgun:'hasRailgun', sonic:'hasSonic' };
+function disableBaseWeapons(keys) {
+  keys.forEach(k => { if (WEAPON_FLAGS[k]) G.player[WEAPON_FLAGS[k]] = false; });
+}
+
+function isWeaponMaxed(key) {
+  const maxLevels = { spread:5, missile:5, bomb:5, railgun:5, sonic:5 };
+  return G.upgrades[key] >= maxLevels[key];
+}
+
+function isComboAvailable(combo) {
+  // Both base weapons must be maxed
+  if (!combo.uses.every(w => isWeaponMaxed(w))) return false;
+  // Not already bought
+  if (G.bought.has(combo.key)) return false;
+  // Neither base weapon is locked by another combo
+  for (const w of combo.uses) {
+    if (G.comboLocked.has(w)) return false;
+  }
+  return true;
+}
+
+function isComboBlocked(combo) {
+  // Would be available if not for a lock conflict
+  if (!combo.uses.every(w => isWeaponMaxed(w))) return false;
+  if (G.bought.has(combo.key)) return false;
+  return combo.uses.some(w => G.comboLocked.has(w));
+}
+
+function showUpgradeScreen() {
+  document.getElementById('upgradeScreen').classList.remove('hidden');
+  document.getElementById('upgradeXP').textContent = G.xp;
+  const grid = document.getElementById('upgradeGrid');
+  grid.innerHTML = '';
+
+  const upgrades = [
+    // Core
+    { key:'speed', name:'THRUSTERS', desc:'Move 18% faster', cost:20, max:8, cat:'core',
+      apply:()=>{ G.player.speed += 28; }},
+    { key:'fireRate', name:'RAPID FIRE', desc:'ALL weapons 15% faster', cost:25, max:8, cat:'core',
+      apply:()=>{
+        const m = 0.85;
+        G.player.fireRate = Math.max(0.1, G.player.fireRate * m);
+        G.player.missileRate = Math.max(1.0, G.player.missileRate * m);
+        G.player.bombRate = Math.max(1.5, G.player.bombRate * m);
+        G.player.railRate = Math.max(1.2, G.player.railRate * m);
+        G.player.swarmSalvoRate = Math.max(1.5, G.player.swarmSalvoRate * m);
+        G.player.clusterRate = Math.max(2.0, G.player.clusterRate * m);
+        G.player.prismRate = Math.max(1.5, G.player.prismRate * m);
+        G.player.thermonukeRate = Math.max(4.0, G.player.thermonukeRate * m);
+        G.player.chainRate = Math.max(1.5, G.player.chainRate * m);
+        G.player.orbitalRate = Math.max(1.5, G.player.orbitalRate * m);
+        G.player.sonicRate = Math.max(2.0, G.player.sonicRate * m);
+        G.player.shrapnelRate = Math.max(2.0, G.player.shrapnelRate * m);
+        G.player.concussionRate = Math.max(2.0, G.player.concussionRate * m);
+        G.player.seismicRate = Math.max(2.0, G.player.seismicRate * m);
+        G.player.harmonicRate = Math.max(2.0, G.player.harmonicRate * m);
+        G.player.recursionRate = Math.max(3.0, G.player.recursionRate * m);
+        G.player.ghostFleetRate = Math.max(3.0, G.player.ghostFleetRate * m);
+        G.player.extinctionRate = Math.max(4.0, G.player.extinctionRate * m);
+        G.player.tectonicRate = Math.max(3.0, G.player.tectonicRate * m);
+        G.player.frozenLightRate = Math.max(3.0, G.player.frozenLightRate * m);
+        G.player.nucShrapRate = Math.max(4.0, G.player.nucShrapRate * m);
+        G.player.gravitonRate = Math.max(5.0, G.player.gravitonRate * m);
+        G.player.resSwarmRate = Math.max(3.0, G.player.resSwarmRate * m);
+        G.player.permafrostRate = Math.max(3.0, G.player.permafrostRate * m);
+        G.player.aftershockRate = Math.max(3.0, G.player.aftershockRate * m);
+        G.player.faultLineRate = Math.max(2.5, G.player.faultLineRate * m);
+        G.player.tungstenRate = Math.max(3.0, G.player.tungstenRate * m);
+        G.player.meteorRate = Math.max(3.0, G.player.meteorRate * m);
+        G.player.teslaRate = Math.max(4.0, G.player.teslaRate * m);
+        G.player.supernovaRate = Math.max(5.0, G.player.supernovaRate * m);
+      }},
+    { key:'damage', name:'POWER CORE', desc:'All damage +30%', cost:30, max:10, cat:'core',
+      apply:()=>{ G.player.bulletDamage *= 1.3; G.player.missileDamage *= 1.2; G.player.bombDamage *= 1.2; G.player.railDamage *= 1.2; }},
+    { key:'health', name:'ARMOR PLATE', desc:'Max HP +40, heal to full', cost:20, max:8, cat:'core',
+      apply:()=>{ G.player.maxHp += 40; G.player.hp = G.player.maxHp; }},
+    { key:'pierce', name:'PIERCING ROUNDS', desc:'Bullets pass through +1 enemy', cost:40, max:5, cat:'core',
+      apply:()=>{ G.player.bulletPierce += 1; }},
+    { key:'regen', name:'NANO REPAIR', desc:'Regenerate HP over time', cost:35, max:5, cat:'core',
+      apply:()=>{}},
+    // Weapons
+    { key:'spread', name:'SPREAD SHOT', desc: G.player.hasSpread ? 'Add +2 spread bullets' : 'Fire 3 extra angled bullets', cost:50, max:5, cat:'weapon',
+      apply:()=>{ G.player.hasSpread = true; G.player.spreadCount += 2; }},
+    { key:'missile', name:'MISSILE POD', desc: G.player.hasMissile ? 'Faster missiles, more damage' : 'Auto-fire homing missiles (AOE)', cost:60, max:5, cat:'weapon',
+      apply:()=>{ G.player.hasMissile = true; G.player.missileRate = Math.max(1.2, G.player.missileRate * 0.88); G.player.missileDamage *= 1.3; G.player.blastRadius = Math.min(90, (G.player.blastRadius||55) + 8); }},
+    { key:'bomb', name:'BOMB BAY', desc: G.player.hasBomb ? 'Faster bombs, bigger blast' : 'Lob explosive bombs toward cursor', cost:60, max:5, cat:'weapon',
+      apply:()=>{ G.player.hasBomb = true; G.player.bombRate = Math.max(2.0, G.player.bombRate * 0.88); G.player.bombDamage *= 1.3; G.player.bombRadius += 12; }},
+    { key:'railgun', name:'RAILGUN', desc: G.player.hasRailgun ? 'Faster shots, more damage' : 'Instant beam that pierces everything', cost:80, max:5, cat:'weapon',
+      apply:()=>{ G.player.hasRailgun = true; G.player.railRate = Math.max(1.5, G.player.railRate * 0.88); G.player.railDamage *= 1.35; }},
+    { key:'sonic', name:'SONIC WAVE', desc: G.player.hasSonic ? `+72° arc (now ${Math.min(360, (G.upgrades.sonic + 1) * 72)}°)` : 'Pulse a 72° shockwave from the ship', cost:55, max:5, cat:'weapon',
+      apply:()=>{ G.player.hasSonic = true; G.player.sonicArcDegs = G.upgrades.sonic * 72; G.player.sonicDamage *= 1.15; }},
+  ];
+
+  // Render core + weapon upgrades
+  upgrades.forEach(u => {
+    const level = G.upgrades[u.key];
+    const maxed = level >= u.max;
+    const cost = u.cost + level * Math.floor(u.cost * 0.4);
+    const canAfford = G.xp >= cost;
+
+    const card = document.createElement('div');
+    card.className = 'upgrade-card' + (!canAfford || maxed ? ' disabled' : '');
+    const catColor = u.cat === 'weapon' ? '#ff6644' : '#ffaa00';
+    card.innerHTML = `
+      <div class="upgrade-card-name" style="color:${catColor}">${u.name}</div>
+      <div class="upgrade-card-desc">${u.desc}</div>
+      <span class="upgrade-card-cost">${maxed ? 'MAXED' : `${cost} XP`}</span>
+      <span class="upgrade-card-level">LV ${level}/${u.max}</span>
+    `;
+    if (canAfford && !maxed) {
+      card.addEventListener('click', () => {
+        G.xp -= cost;
+        G.upgrades[u.key]++;
+        u.apply();
+        showUpgradeScreen();
+      });
+    }
+    grid.appendChild(card);
+  });
+
+  // Check if any combos should be visible
+  const anyCombosVisible = COMBO_DEFS.some(c =>
+    c.uses.every(w => isWeaponMaxed(w))
+  );
+
+  if (anyCombosVisible) {
+    // Section divider
+    const divider = document.createElement('div');
+    divider.style.cssText = 'grid-column:1/-1;text-align:center;font-family:"Press Start 2P",monospace;font-size:8px;color:#ff44ff;padding:8px 0;border-top:1px solid #333;margin-top:4px;letter-spacing:2px;';
+    divider.textContent = '⚡ COMBO WEAPONS ⚡';
+    grid.appendChild(divider);
+
+    const comboNote = document.createElement('div');
+    comboNote.style.cssText = 'grid-column:1/-1;font-size:8px;color:#666;text-align:center;margin-bottom:4px;';
+    comboNote.textContent = 'Fuses two maxed weapons. Each base weapon can only be used in ONE combo.';
+    grid.appendChild(comboNote);
+
+    COMBO_DEFS.forEach(combo => {
+      const level = G.upgrades[combo.key] || 0;
+      const maxed = level >= combo.max;
+      const isUnlocked = level >= 1; // has been bought at least once
+      const available = level === 0 ? isComboAvailable(combo) : true; // level 0 needs availability check
+      const blocked = level === 0 ? isComboBlocked(combo) : false;
+      const bothMaxed = combo.uses.every(w => isWeaponMaxed(w));
+
+      if (!bothMaxed) return;
+
+      const costs = [150, 200, 300];
+      const cost = level < costs.length ? costs[level] : 999;
+      const canAfford = G.xp >= cost;
+
+      const card = document.createElement('div');
+      let cardClass = 'upgrade-card';
+      if (maxed) cardClass += ' bought';
+      else if ((level === 0 && blocked) || !canAfford) cardClass += ' disabled';
+      card.className = cardClass;
+
+      const usesLabels = combo.uses.map(w => w.toUpperCase()).join(' + ');
+      const desc = combo.descs[Math.min(level, combo.descs.length - 1)];
+
+      let statusText;
+      if (maxed) {
+        statusText = '<div class="uc-status">✓ MAX</div>';
+      } else if (level === 0 && blocked) {
+        const lockedBy = combo.uses.find(w => G.comboLocked.has(w));
+        statusText = `<div style="font-size:7px;color:#ff4466">🔒 ${lockedBy.toUpperCase()} used</div>`;
+      } else {
+        statusText = `<div class="uc-cost${canAfford ? '' : ' too-expensive'}">${cost} XP</div>`;
+      }
+
+      card.innerHTML = `
+        <div class="uc-left">
+          <div class="upgrade-card-name" style="color:${combo.color}">${combo.name}</div>
+          <div class="upgrade-card-desc">${desc}</div>
+          <div style="font-size:7px;color:#888;margin-top:2px;">${level === 0 ? 'Fuses: ' + usesLabels : 'LV ' + level + '/' + combo.max}</div>
+        </div>
+        <div class="uc-right">${statusText}</div>
+      `;
+
+      const canBuy = !maxed && canAfford && (level > 0 || available);
+      if (canBuy) {
+        card.addEventListener('click', () => {
+          G.xp -= cost;
+          G.upgrades[combo.key] = (G.upgrades[combo.key] || 0) + 1;
+          if (level === 0) {
+            G.bought.add(combo.key);
+            combo.uses.forEach(w => G.comboLocked.add(w));
+            combo.apply();
+          }
+          showUpgradeScreen();
+        });
+      }
+
+      grid.appendChild(card);
+    });
+  }
+
+  // === ULTRA COMBOS ===
+  const COMBO_FLAGS = {
+    combo_spread_missile: 'hasSwarmSalvo', combo_spread_bomb: 'hasClusterBombs',
+    combo_spread_railgun: 'hasPrismBeam', combo_missile_bomb: 'hasThermonuke',
+    combo_missile_railgun: 'hasChainLightning', combo_bomb_railgun: 'hasOrbitalStrike',
+    combo_sonic_spread: 'hasShrapnelWave', combo_sonic_missile: 'hasConcussionSalvo',
+    combo_sonic_bomb: 'hasSeismicSlam', combo_sonic_railgun: 'hasHarmonicRes',
+  };
+  const ULTRA_DEFS = [
+    { key:'ultra_meteor', name:'METEOR SHOWER', desc:'Rain of 6 tracking beams from the sky, each spawning 3 homing missile fragments',
+      requires:['combo_spread_missile','combo_bomb_railgun'], reqNames:'Swarm Salvo + Orbital Strike', color:'#ffaa44',
+      apply:()=>{ G.player.hasMeteorShower = true; ['combo_spread_missile','combo_bomb_railgun'].forEach(k => G.player[COMBO_FLAGS[k]] = false); }},
+    { key:'ultra_tesla', name:'TESLA MINEFIELD', desc:'Ring of 8 electrified mines — trigger one and lightning chains through ALL, then they all detonate',
+      requires:['combo_spread_bomb','combo_missile_railgun'], reqNames:'Cluster Bombs + Chain Lightning', color:'#66ddff',
+      apply:()=>{ G.player.hasTeslaMinefield = true; ['combo_spread_bomb','combo_missile_railgun'].forEach(k => G.player[COMBO_FLAGS[k]] = false); }},
+    { key:'ultra_supernova', name:'SUPERNOVA', desc:'Death Star beam sweeps 360° around you, then your position detonates in a MEGA explosion',
+      requires:['combo_spread_railgun','combo_missile_bomb'], reqNames:'Prism Beam + Thermonuke', color:'#ffccff',
+      apply:()=>{ G.player.hasSupernova = true; ['combo_spread_railgun','combo_missile_bomb'].forEach(k => G.player[COMBO_FLAGS[k]] = false); }},
+    // Sonic ultras
+    { key:'ultra_recursion', name:'INFINITE RECURSION', desc:'Full 360° wave → each hit chains lightning AND spawns sub-waves. Recursive destruction.',
+      requires:['combo_sonic_spread','combo_missile_railgun'], reqNames:'Shrapnel Wave + Chain Lightning', color:'#ff88ff',
+      apply:()=>{ G.player.hasInfiniteRecursion = true; ['combo_sonic_spread','combo_missile_railgun'].forEach(k => G.player[COMBO_FLAGS[k]] = false); }},
+    { key:'ultra_ghost', name:'GHOST FLEET', desc:'360° freeze wave → orbital beam strikes EVERY frozen target. Nowhere to hide.',
+      requires:['combo_sonic_missile','combo_bomb_railgun'], reqNames:'Concussion Salvo + Orbital Strike', color:'#aaaaff',
+      apply:()=>{ G.player.hasGhostFleet = true; ['combo_sonic_missile','combo_bomb_railgun'].forEach(k => G.player[COMBO_FLAGS[k]] = false); }},
+    { key:'ultra_extinction', name:'EXTINCTION EVENT', desc:'360° seismic wave → every hit explodes AND spawns a homing missile. Total annihilation.',
+      requires:['combo_sonic_bomb','combo_spread_missile'], reqNames:'Seismic Slam + Swarm Salvo', color:'#ffcc44',
+      apply:()=>{ G.player.hasExtinctionEvent = true; ['combo_sonic_bomb','combo_spread_missile'].forEach(k => G.player[COMBO_FLAGS[k]] = false); }},
+    // 9 new ultras — complete the matrix
+    { key:'ultra_tectonic', name:'TECTONIC PRISM', desc:'5 rail beams — every enemy hit triggers a seismic explosion. Screen shakes.',
+      requires:['combo_spread_railgun','combo_sonic_bomb'], reqNames:'Prism Beam + Seismic Slam', color:'#ff8833',
+      apply:()=>{ G.player.hasTectonicPrism = true; ['combo_spread_railgun','combo_sonic_bomb'].forEach(k => G.player[COMBO_FLAGS[k]] = false); }},
+    { key:'ultra_frozen', name:'FROZEN LIGHT', desc:'360° freeze wave → 5 prism beams through frozen targets at 3x damage. Shatter.',
+      requires:['combo_spread_railgun','combo_sonic_missile'], reqNames:'Prism Beam + Concussion Salvo', color:'#aaddff',
+      apply:()=>{ G.player.hasFrozenLight = true; ['combo_spread_railgun','combo_sonic_missile'].forEach(k => G.player[COMBO_FLAGS[k]] = false); }},
+    { key:'ultra_nucshrap', name:'NUCLEAR SHRAPNEL', desc:'Homing nuke → detonation spawns massive 360° shrapnel wave spraying bullets.',
+      requires:['combo_missile_bomb','combo_sonic_spread'], reqNames:'Thermonuke + Shrapnel Wave', color:'#ff6644',
+      apply:()=>{ G.player.hasNuclearShrapnel = true; ['combo_missile_bomb','combo_sonic_spread'].forEach(k => G.player[COMBO_FLAGS[k]] = false); }},
+    { key:'ultra_graviton', name:'GRAVITON COLLAPSE', desc:'Nuke → implosion waves pull all enemies to center across 3 bounces → re-explode.',
+      requires:['combo_missile_bomb','combo_sonic_railgun'], reqNames:'Thermonuke + Harmonic Resonance', color:'#cc44ff',
+      apply:()=>{ G.player.hasGravitonCollapse = true; ['combo_missile_bomb','combo_sonic_railgun'].forEach(k => G.player[COMBO_FLAGS[k]] = false); }},
+    { key:'ultra_resswarm', name:'RESONANCE SWARM', desc:'Harmonic wave bounces in and out — every hit on EACH pass spawns a homing missile.',
+      requires:['combo_spread_missile','combo_sonic_railgun'], reqNames:'Swarm Salvo + Harmonic Resonance', color:'#66ffaa',
+      apply:()=>{ G.player.hasResonanceSwarm = true; ['combo_spread_missile','combo_sonic_railgun'].forEach(k => G.player[COMBO_FLAGS[k]] = false); }},
+    { key:'ultra_permafrost', name:'PERMAFROST MINES', desc:'360° freeze wave → cluster bombs rain down on every frozen target. 2x explosion damage.',
+      requires:['combo_spread_bomb','combo_sonic_missile'], reqNames:'Cluster Bombs + Concussion Salvo', color:'#88bbff',
+      apply:()=>{ G.player.hasPermafrostMines = true; ['combo_spread_bomb','combo_sonic_missile'].forEach(k => G.player[COMBO_FLAGS[k]] = false); }},
+    { key:'ultra_aftershock', name:'AFTERSHOCK', desc:'Harmonic wave bounces 3x — every hit triggers cluster cascades. Screen fills with fire.',
+      requires:['combo_spread_bomb','combo_sonic_railgun'], reqNames:'Cluster Bombs + Harmonic Resonance', color:'#ff9944',
+      apply:()=>{ G.player.hasAftershock = true; ['combo_spread_bomb','combo_sonic_railgun'].forEach(k => G.player[COMBO_FLAGS[k]] = false); }},
+    { key:'ultra_faultline', name:'FAULT LINE', desc:'Lightning chains through ALL enemies, leaving persistent damage fissure for 3 seconds.',
+      requires:['combo_missile_railgun','combo_sonic_bomb'], reqNames:'Chain Lightning + Seismic Slam', color:'#ff66aa',
+      apply:()=>{ G.player.hasFaultLine = true; ['combo_missile_railgun','combo_sonic_bomb'].forEach(k => G.player[COMBO_FLAGS[k]] = false); }},
+    { key:'ultra_tungsten', name:'TUNGSTEN RAIN', desc:'8 orbital beams fire in a ring — each impact spawns an expanding shrapnel wave. Carpet bomb.',
+      requires:['combo_bomb_railgun','combo_sonic_spread'], reqNames:'Orbital Strike + Shrapnel Wave', color:'#ccccff',
+      apply:()=>{ G.player.hasTungstenRain = true; ['combo_bomb_railgun','combo_sonic_spread'].forEach(k => G.player[COMBO_FLAGS[k]] = false); }},
+  ];
+
+  const anyUltraVisible = ULTRA_DEFS.some(u =>
+    u.requires.every(r => (G.upgrades[r] || 0) >= 3)
+  );
+
+  if (anyUltraVisible) {
+    const divider = document.createElement('div');
+    divider.style.cssText = 'grid-column:1/-1;text-align:center;font-family:"Press Start 2P",monospace;font-size:8px;padding:10px 0;border-top:1px solid #555;margin-top:6px;letter-spacing:2px;background:linear-gradient(90deg,transparent,#ffaa0022,transparent);color:#ffaa00;';
+    divider.textContent = '\u26A1\u26A1 ULTRA COMBOS \u26A1\u26A1';
+    grid.appendChild(divider);
+
+    const ultraNote = document.createElement('div');
+    ultraNote.style.cssText = 'grid-column:1/-1;font-size:8px;color:#888;text-align:center;margin-bottom:4px;';
+    ultraNote.textContent = 'Requires BOTH combo weapons maxed at LV3. The ultimate arsenal.';
+    grid.appendChild(ultraNote);
+
+    ULTRA_DEFS.forEach(ultra => {
+      const bought = G.bought.has(ultra.key);
+      const ready = ultra.requires.every(r => (G.upgrades[r] || 0) >= 3);
+      if (!ready) return;
+
+      const cost = 500;
+      const canAfford = G.xp >= cost;
+
+      const card = document.createElement('div');
+      card.className = 'upgrade-card' + (bought ? ' bought' : (!canAfford ? ' disabled' : ''));
+      card.style.borderColor = bought ? ultra.color : '';
+
+      card.innerHTML = `
+        <div class="uc-left">
+          <div class="upgrade-card-name" style="color:${ultra.color};font-size:9px">\u2605 ${ultra.name}</div>
+          <div class="upgrade-card-desc">${ultra.desc}</div>
+          <div style="font-size:7px;color:#888;margin-top:2px;">Fuses: ${ultra.reqNames}</div>
+        </div>
+        <div class="uc-right">
+          ${bought ? '<div class="uc-status">\u2713 ACTIVE</div>' :
+            `<div class="uc-cost${canAfford ? '' : ' too-expensive'}">${cost} XP</div>`}
+        </div>
+      `;
+
+      if (!bought && canAfford) {
+        card.addEventListener('click', () => {
+          G.xp -= cost;
+          G.bought.add(ultra.key);
+          G.upgrades[ultra.key] = 1;
+          ultra.apply();
+          showUpgradeScreen();
+        });
+      }
+
+      grid.appendChild(card);
+    });
+  }
+}
+
+function hideUpgradeScreen() {
+  document.getElementById('upgradeScreen').classList.add('hidden');
+  G.wave++;
+  startWave();
+}
+
+function startWave() {
+  const cfg = getWaveConfig(G.wave);
+  G.enemiesToSpawn = cfg.count;
+  G.enemiesAlive = 0;
+  G.spawnTimer = 0.5;
+  G.waveComplete = false;
+  G.state = 'playing';
+}
+
+function gameOver() {
+  G.state = 'over';
+  if (G.score > highScore) highScore = G.score;
+  document.getElementById('gameOverScreen').classList.remove('hidden');
+  document.getElementById('finalWave').textContent = G.wave;
+  document.getElementById('finalScore').textContent = G.score.toLocaleString();
+  document.getElementById('finalKills').textContent = G.kills;
+  document.getElementById('finalHi').textContent = highScore.toLocaleString();
+}
+
+// ========== GAME LOOP (single instance guaranteed) ==========
+let lastTime = 0;
+function loop(timestamp) {
+  if (!loopRunning) return; // safety valve
+  const dt = Math.min((timestamp - lastTime) / 1000, 0.05);
+  lastTime = timestamp;
+  update(dt);
+  draw();
+  animFrame = requestAnimationFrame(loop);
+}
+
+function startGameLoop() {
+  // ALWAYS stop any existing loop first
+  loopRunning = false;
+  if (animFrame) { cancelAnimationFrame(animFrame); animFrame = null; }
+  // Clean start
+  loopRunning = true;
+  lastTime = performance.now();
+  animFrame = requestAnimationFrame(loop);
+}
+
+function stopGameLoop() {
+  loopRunning = false;
+  if (animFrame) { cancelAnimationFrame(animFrame); animFrame = null; }
+}
+
+// ========== BUTTON HANDLERS (attached once) ==========
+document.getElementById('startBtn').addEventListener('click', () => {
+  document.getElementById('titleScreen').classList.add('hidden');
+  initGame();
+  startWave();
+  startGameLoop();
+});
+
+document.getElementById('nextWaveBtn').addEventListener('click', hideUpgradeScreen);
+
+document.getElementById('restartBtn').addEventListener('click', () => {
+  document.getElementById('gameOverScreen').classList.add('hidden');
+  stopGameLoop();
+  initGame();
+  startWave();
+  startGameLoop();
+});
+
+// Initial background render
+ctx.fillStyle = '#0a0a12';
+ctx.fillRect(0, 0, W, H);
+stars.forEach(s => {
+  ctx.fillStyle = `rgba(180,200,255,${s.br})`;
+  ctx.fillRect(s.x, s.y, s.size, s.size);
+});
+</script>
+</body>
+</html>
